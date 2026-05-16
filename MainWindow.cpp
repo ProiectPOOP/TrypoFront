@@ -266,6 +266,8 @@ QWidget *MainWindow::createUserProfileWidget()
     QWidget *w = new QWidget();
     QVBoxLayout *ml = new QVBoxLayout(w);
     ml->setContentsMargins(40, 30, 40, 30);
+
+    // --- HEADER-UL DE SUS ---
     QHBoxLayout *h = new QHBoxLayout();
     QPushButton *bb = new QPushButton("← Back to Explore");
     bb->setStyleSheet(secondaryBtnStyle);
@@ -278,28 +280,34 @@ QWidget *MainWindow::createUserProfileWidget()
     h->addStretch();
     ml->addLayout(h);
     ml->addSpacing(30);
+
+    // --- SPLIT-SCREEN LAYOUT ---
+    QHBoxLayout *splitLayout = new QHBoxLayout();
+    splitLayout->setSpacing(50);
+
+    // 1. COLOANA STÂNGĂ: Informații Client
+    QVBoxLayout *leftColumn = new QVBoxLayout();
+    leftColumn->setAlignment(Qt::AlignTop);
+
     QLabel *sub1 = new QLabel("Customer Information");
     sub1->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6;");
-    ml->addWidget(sub1);
+    leftColumn->addWidget(sub1);
+
     QWidget *detW = new QWidget();
     QFormLayout *f = new QFormLayout(detW);
-    f->setContentsMargins(0, 15, 0, 30);
+    // MODIFICARE: Am redus marginea de sus de la 15 la 5 ca să aducem textul mai aproape de titlu
+    f->setContentsMargins(0, 5, 0, 30);
     f->setVerticalSpacing(15);
+
     QString vs = "color: white; font-size: 15px;";
-    lblNameVal = new QLabel("N/A");
-    lblNameVal->setStyleSheet(vs);
-    lblEmailVal = new QLabel("N/A");
-    lblEmailVal->setStyleSheet(vs);
-    lblPhoneVal = new QLabel("N/A");
-    lblPhoneVal->setStyleSheet(vs);
-    lblDobVal = new QLabel("N/A");
-    lblDobVal->setStyleSheet(vs);
-    lblCountryVal = new QLabel("N/A");
-    lblCountryVal->setStyleSheet(vs);
-    lblGenderVal = new QLabel("N/A");
-    lblGenderVal->setStyleSheet(vs);
-    lblAddressVal = new QLabel("N/A");
-    lblAddressVal->setStyleSheet(vs);
+    lblNameVal = new QLabel("N/A");    lblNameVal->setStyleSheet(vs);
+    lblEmailVal = new QLabel("N/A");   lblEmailVal->setStyleSheet(vs);
+    lblPhoneVal = new QLabel("N/A");   lblPhoneVal->setStyleSheet(vs);
+    lblDobVal = new QLabel("N/A");     lblDobVal->setStyleSheet(vs);
+    lblCountryVal = new QLabel("N/A"); lblCountryVal->setStyleSheet(vs);
+    lblGenderVal = new QLabel("N/A");  lblGenderVal->setStyleSheet(vs);
+    lblAddressVal = new QLabel("N/A"); lblAddressVal->setStyleSheet(vs);
+
     lblBalanceVal = new QLabel("0.00 €");
     lblBalanceVal->setStyleSheet("color: #22c55e; font-size: 16px; font-weight: bold;");
 
@@ -311,25 +319,38 @@ QWidget *MainWindow::createUserProfileWidget()
     f->addRow(new QLabel("Gender:"), lblGenderVal);
     f->addRow(new QLabel("Address:"), lblAddressVal);
     f->addRow(new QLabel("Current Balance:"), lblBalanceVal);
-    ml->addWidget(detW);
+
+    leftColumn->addWidget(detW);
+
+    // 2. COLOANA DREAPTĂ: Istoric Rezervări
+    QVBoxLayout *rightColumn = new QVBoxLayout();
+    rightColumn->setAlignment(Qt::AlignTop);
+
     QLabel *sub2 = new QLabel("Your Booking History");
     sub2->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6;");
-    ml->addWidget(sub2);
+    rightColumn->addWidget(sub2);
+    // MODIFICARE: Am micșorat spațiul dintre titlu și listă de la 15 la 5
+    rightColumn->addSpacing(5);
 
     QScrollArea *hsa = new QScrollArea();
     hsa->setWidgetResizable(true);
     hsa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
 
     QWidget *hc = new QWidget();
-    historyLayout = new QVBoxLayout(hc); // <--- MODIFICARE: Alocăm pointerul din clasa de bază
+    historyLayout = new QVBoxLayout(hc);
     historyLayout->setAlignment(Qt::AlignTop);
 
-    // --- NOTĂ: Bucla 'for' veche a fost mutată în funcția de mai jos ---
-    updateBookingHistoryUi(); // Apel inițial pentru a încărca rezervările hardcodate
-    // ------------------------------------------------------------------
+    updateBookingHistoryUi();
 
     hsa->setWidget(hc);
-    ml->addWidget(hsa);
+    rightColumn->addWidget(hsa);
+
+    // Asamblare coloane (50% / 50%)
+    splitLayout->addLayout(leftColumn, 1);
+    splitLayout->addLayout(rightColumn, 1);
+
+    ml->addLayout(splitLayout);
+
     return w;
 }
 
@@ -584,9 +605,23 @@ void MainWindow::populateAccommodations(const QString &f)
             "color: #94a3b8; font-size: 14px; border: none; background: transparent;");
         inf->addWidget(nL);
         inf->addWidget(lL);
+
         QPushButton *btn = new QPushButton("View Details");
         btn->setStyleSheet(primaryBtnStyle);
-        connect(btn, &QPushButton::clicked, this, [this, acc]() { openAccommodationDetails(acc); });
+
+        // --- REZOLVARE BUG: Capturăm doar ID-ul, nu întreaga structură prin valoare ---
+        int targetId = acc.id;
+        connect(btn, &QPushButton::clicked, this, [this, targetId]() {
+            // Căutăm în vectorul global varianta proaspătă a cazării (care conține noile nopți roșii)
+            for (const auto &globalAcc : allAccommodations) {
+                if (globalAcc.id == targetId) {
+                    openAccommodationDetails(globalAcc);
+                    break;
+                }
+            }
+        });
+        // -----------------------------------------------------------------------------
+
         l->addLayout(inf);
         l->addStretch();
         l->addWidget(btn);
@@ -776,9 +811,8 @@ void MainWindow::bookRoom(int roomId)
     }
     if (!selectedRoom) return;
 
-    // Simulare date ocupate (Demo hardcodat la final de lună pentru test cross-month)
+    // Simulare date ocupate (Demo)
     if (selectedRoom->bookedDates.isEmpty()) {
-        // Simulăm că zilele de 28 și 29 ale lunii curente sunt deja ocupate
         QDate target = QDate::currentDate();
         selectedRoom->bookedDates.append(QDate(target.year(), target.month(), 28));
         selectedRoom->bookedDates.append(QDate(target.year(), target.month(), 29));
@@ -809,58 +843,69 @@ void MainWindow::bookRoom(int roomId)
     layout->addWidget(calendar);
 
     // Formate de culori
-    QTextCharFormat availableFormat, unavailableFormat, previewFormat;
-    availableFormat.setBackground(QColor("#16a34a")); availableFormat.setForeground(Qt::white);   // Verde
-    unavailableFormat.setBackground(QColor("#dc2626")); unavailableFormat.setForeground(Qt::white); // Roșu
-    previewFormat.setBackground(QColor("#f59e0b"));     previewFormat.setForeground(Qt::white);   // Portocaliu (Selecție curentă)
+    QTextCharFormat availableFormat, unavailableFormat, previewFormat, pastFormat;
+    availableFormat.setBackground(QColor("#16a34a")); availableFormat.setForeground(Qt::white);   // Verde (Liber)
+    unavailableFormat.setBackground(QColor("#dc2626")); unavailableFormat.setForeground(Qt::white); // Roșu (Ocupat)
+    previewFormat.setBackground(QColor("#f59e0b"));     previewFormat.setForeground(Qt::white);   // Portocaliu (Selecție)
 
-    QFormLayout *formLayout = new QFormLayout();
+    pastFormat.setBackground(QColor("#334155"));
+    pastFormat.setForeground(QColor("#64748b")); // Text șters pentru trecut
+
     QDateEdit *checkInEdit = new QDateEdit(QDate::currentDate());
     checkInEdit->setCalendarPopup(true); checkInEdit->setStyleSheet(dropDownStyle);
     QDateEdit *checkOutEdit = new QDateEdit(QDate::currentDate().addDays(1));
     checkOutEdit->setCalendarPopup(true); checkOutEdit->setStyleSheet(dropDownStyle);
 
+    QFormLayout *formLayout = new QFormLayout();
     formLayout->addRow(new QLabel("Check-in Date:"), checkInEdit);
     formLayout->addRow(new QLabel("Check-out Date:"), checkOutEdit);
     layout->addLayout(formLayout);
 
-    // Starea selecției (true = se așteaptă check-in, false = se așteaptă checkout)
     auto isSelectingCheckIn = std::make_shared<bool>(true);
     auto hasFinalSelection = std::make_shared<bool>(false);
 
     // --- FUNCTIA LAMBDA DE REFRESH GRAFIC AL CALENDARULUI ---
-    // Curăță și redesenează totul corect, indiferent de lună sau an
     auto refreshCalendarColors = [=]() {
-        QDate base = QDate::currentDate();
-        // Resetăm preventiv un interval larg de 365 de zile cu Verde (Disponibil)
-        for (int i = -30; i < 335; ++i) {
-            calendar->setDateTextFormat(base.addDays(i), availableFormat);
+        QDate today = QDate::currentDate();
+
+        // MODIFICARE: Am setat bucla de la -365 la 365 de zile
+        // Acum trecutul este acoperit complet pe un an în urmă, transformând totul în gri
+        for (int i = -365; i < 365; ++i) {
+            QDate d = today.addDays(i);
+            if (d < today) {
+                calendar->setDateTextFormat(d, pastFormat);
+            } else {
+                calendar->setDateTextFormat(d, availableFormat);
+            }
         }
 
-        // Aplicăm Roșu strict pentru zilele salvate în vectorul de rezervări ocupate
+        // Aplicăm Roșu pentru rezervările din prezent sau viitor
         for (const QDate &bookedDate : selectedRoom->bookedDates) {
-            calendar->setDateTextFormat(bookedDate, unavailableFormat);
+            if (bookedDate >= today) {
+                calendar->setDateTextFormat(bookedDate, unavailableFormat);
+            }
         }
 
-        // Dacă avem o selecție activă în curs, colorăm intervalul cu Portocaliu (Live Preview cross-month)
+        // Aplicăm Portocaliu pentru Live Preview-ul selecției curente
         if (!(*isSelectingCheckIn) || *hasFinalSelection) {
             QDate startSel = checkInEdit->date();
             QDate endSel = checkOutEdit->date();
             for (QDate d = startSel; d <= endSel; d = d.addDays(1)) {
-                calendar->setDateTextFormat(d, previewFormat);
+                if (d >= today) {
+                    calendar->setDateTextFormat(d, previewFormat);
+                }
             }
         }
     };
 
-    // Apelăm refresh-ul inițial ca să vedem zonele roșii din start
     refreshCalendarColors();
 
-    // Forțăm reîmprospătarea culorilor când utilizatorul schimbă luna din săgeți
+    // Reîmprospătează culorile gri când utilizatorul dă paginile înapoi/înainte
     connect(calendar, &QCalendarWidget::currentPageChanged, dialog, [=](int, int) {
         refreshCalendarColors();
     });
 
-    // --- LOGICĂ CLICK INTELIGENTĂ (AICI SE REZOLVĂ BUG-UL) ---
+    // --- LOGICĂ CLICK ---
     connect(calendar, &QCalendarWidget::clicked, this, [=](const QDate &date) {
         if (date < QDate::currentDate()) {
             QMessageBox::warning(dialog, "Error", "Cannot select past dates.");
@@ -886,7 +931,6 @@ void MainWindow::bookRoom(int roomId)
             *hasFinalSelection = false;
         } else {
             if (date > checkInEdit->date()) {
-                // Verificăm dacă între Check-in-ul curent și noul click există nopți ocupate (roșii)
                 bool hasBlockedNight = false;
                 for (QDate d = checkInEdit->date(); d < date; d = d.addDays(1)) {
                     if (selectedRoom->bookedDates.contains(d)) {
@@ -896,7 +940,6 @@ void MainWindow::bookRoom(int roomId)
                 }
 
                 if (hasBlockedNight) {
-                    // Dacă a sărit peste o zonă roșie, mutăm noul Check-In aici
                     checkInEdit->setDate(date);
                     checkOutEdit->setDate(date.addDays(1));
                     statusLbl->setText("Jumped over a blocked zone. New CHECK-IN set here!");
@@ -904,12 +947,11 @@ void MainWindow::bookRoom(int roomId)
                     *isSelectingCheckIn = false;
                     *hasFinalSelection = false;
                 } else {
-                    // Perioada este validă (chiar dacă trece în luna următoare!)
                     checkOutEdit->setDate(date);
                     statusLbl->setText("Period Selected! Click again to reset Check-in.");
                     statusLbl->setStyleSheet("color: #22c55e; font-weight: bold;");
                     *isSelectingCheckIn = true;
-                    *hasFinalSelection = true; // Confirmă că avem un interval complet definit vizual
+                    *hasFinalSelection = true;
                 }
             } else {
                 checkInEdit->setDate(date);
@@ -921,7 +963,6 @@ void MainWindow::bookRoom(int roomId)
             }
         }
 
-        // Rulăm refresh-ul grafic după fiecare click pentru a redesena Preview-ul portocaliu cross-month
         refreshCalendarColors();
     });
 
@@ -939,12 +980,10 @@ void MainWindow::bookRoom(int roomId)
             return;
         }
 
-        // Adăugăm nopțile rezervate în baza locală (până la ziua de checkout, excluzând-o, conform standardului hotelier)
         for (QDate d = start; d < end; d = d.addDays(1)) {
             selectedRoom->bookedDates.append(d);
         }
 
-        // Sincronizare în structura globală
         for (auto &acc : allAccommodations) {
             for (auto &r : acc.rooms) {
                 if (r.id == roomId) {
@@ -953,7 +992,6 @@ void MainWindow::bookRoom(int roomId)
             }
         }
 
-        // Adăugare în istoric profil
         BookingHistory newBooking;
         newBooking.hotelName = currentAccommodationInDetails.name + " (" + selectedRoom->type + ")";
         newBooking.dateRange = start.toString("MMM dd") + " - " + end.toString("MMM dd, yyyy");
