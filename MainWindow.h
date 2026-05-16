@@ -1,33 +1,36 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "socketclient.h"
-#include <QMainWindow>
-#include <QStackedWidget>
-#include <QLineEdit>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDateEdit>
-#include <QScrollArea>
-#include <QList>
-#include <QVBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
+#include <QList>
+#include <QMainWindow>
 #include <QMap>
-#include <QCheckBox>
+#include <QScrollArea>
+#include <QStackedWidget>
+#include <QVBoxLayout>
+#include "socketclient.h"
 
-struct Facility {
+struct Facility
+{
     QString name;
 };
 
-struct Room {
+struct Room
+{
     int id;
-    QString type;    // single room, double room, triple room
+    QString type; // single room, double room, triple room
     int beds;
     QList<Facility> facilities;
     double basePrice;
-    bool hasSofa;    // creste capacitatea cu 1
+    bool hasSofa; // creste capacitatea cu 1
 };
 
-struct Accommodation {
+struct Accommodation
+{
     int id;
     QString name;
     QString location;
@@ -39,20 +42,23 @@ struct Accommodation {
 };
 
 // aici salvam istoricul unei cazari
-struct BookingHistory {
+struct BookingHistory
+{
     QString hotelName;
     QString dateRange;
     QString status;
 };
 
 // datele despre utilizator
-struct User {
+struct User
+{
     QString name, email, password, phone, dob, country, gender, address;
 };
 
 // slot = mecanism prin care butoanele apeleaza functii
 // click Login -> call processLogin
-class MainWindow : public QMainWindow {
+class MainWindow : public QMainWindow
+{
     Q_OBJECT // macro obligatoriu cand lucram cu sloturi
 
 public:
@@ -71,16 +77,15 @@ private slots:
     void openAccommodationDetails(const Accommodation &acc);
 
 private:
-
     // initializam interfata cu utilizatorul (cele 5 interfete)
     void setupUi();
-    QWidget* createLoginWidget();
-    QWidget* createRegisterWidget();
-    QWidget* createMainAppWidget();
-    QWidget* createUserProfileWidget();
-    QWidget* createDetailsWidget();
-    QString ip= "127.0.0.1";
-    void populateAccommodations(const QString &f= "");
+    QWidget *createLoginWidget();
+    QWidget *createRegisterWidget();
+    QWidget *createMainAppWidget();
+    QWidget *createUserProfileWidget();
+    QWidget *createDetailsWidget();
+    QString ip = "10.10.25.219";
+    void populateAccommodations(const QString &f = "");
     void displayRooms(const QString &filter = "");
     void clearRegisterFields();
     void handleBackendMessage(const QString &message);
@@ -100,7 +105,8 @@ private:
     QVBoxLayout *accommodationsLayout;
 
     // interfata my profile
-    QLabel *lblNameVal, *lblEmailVal, *lblPhoneVal, *lblDobVal, *lblCountryVal, *lblGenderVal, *lblAddressVal;
+    QLabel *lblNameVal, *lblEmailVal, *lblPhoneVal, *lblDobVal, *lblCountryVal, *lblGenderVal,
+        *lblAddressVal;
 
     // ob. in interfata unei unitati de cazare
     QLabel *detName, *detAddress, *detPromo;

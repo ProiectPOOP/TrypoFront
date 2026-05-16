@@ -1,7 +1,8 @@
 #include "socketclient.h"
 #include <QDebug>
 
-SocketClient::SocketClient(QObject *parent) : QObject(parent)
+SocketClient::SocketClient(QObject *parent)
+    : QObject(parent)
 {
     m_socket = new QTcpSocket(this);
 
