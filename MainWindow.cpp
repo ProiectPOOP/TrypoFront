@@ -25,8 +25,6 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle("Trypo");
     resize(1000, 800);
     this->setStyleSheet("QMainWindow { background-color: #0f172a; } " + globalLabelStyle);
-    userBookings = {{"Retezat Cabin", "Jan 12 - Jan 15, 2026", "Finished"},
-                    {"Grand Hotel Trypo", "April 10 - April 12, 2026", "Finished"}};
     cbBalcony = cbFridge = cbAC = cbTV = cbWifi = cbSofa = nullptr;
     m_socketClient = new SocketClient(this);
     m_socketClient->connectToBackend(ip, 12345);
@@ -42,6 +40,7 @@ void MainWindow::setupUi()
     stackedWidget->addWidget(createMainAppWidget());     // 2
     stackedWidget->addWidget(createUserProfileWidget()); // 3
     stackedWidget->addWidget(createDetailsWidget());     // 4
+    stackedWidget->addWidget(createAdminDashboardWidget()); // 5 <--- ADAUGARE PAGINA ADMIN
     setCentralWidget(stackedWidget);
 }
 QString hashPassword(const QString &password)
@@ -102,6 +101,16 @@ void MainWindow::processLogin()
 {
     QString em = loginEmailInput->text().trimmed();
     QString ps = loginPasswordInput->text();
+
+    // --- ADAUGARE: VERIFICARE CONT ADMIN HARDCODAT ---
+    if (em == "admin@trypo.com" && ps == "Admin123!") {
+        qDebug() << "Admin logged in successfully!";
+        updateAdminDashboardUi(); // Încărcăm istoricul proaspăt
+        stackedWidget->setCurrentIndex(5); // Mergem la pagina de Admin
+        return; // Oprim funcția aici, nu mai trimitem pachetul la server
+    }
+    // -------------------------------------------------
+
     QString hashedPassword = hashPassword(ps);
     QJsonObject userObj;
     userObj["type"] = "LOGIN_USER";
@@ -719,7 +728,8 @@ void MainWindow::handleBackendMessage(const QString &message)
             currentUser.country = userData["country"].toString();
             currentUser.dob = userData["dob"].toString();
             currentUser.gender = userData["gender"].toString();
-            currentUser.balance = userData["balance"].toDouble(0.0);
+            //currentUser.balance = userData["balance"].toDouble(0.0);
+            currentUser.balance = 99999.0; // balanta hardcodata pt teste
 
             lblNameVal->setText(currentUser.name);
             lblEmailVal->setText(currentUser.email);
@@ -818,7 +828,7 @@ void MainWindow::bookRoom(int roomId)
         selectedRoom->bookedDates.append(QDate(target.year(), target.month(), 29));
     }
 
-    // 2. Construim fereastra dialog pop-up
+    // 2. Construim fereastra dialog pop-up principală a calendarului
     QDialog *dialog = new QDialog(this);
     dialog->setWindowTitle("Book Room - " + selectedRoom->type);
     dialog->resize(470, 580);
@@ -844,12 +854,10 @@ void MainWindow::bookRoom(int roomId)
 
     // Formate de culori
     QTextCharFormat availableFormat, unavailableFormat, previewFormat, pastFormat;
-    availableFormat.setBackground(QColor("#16a34a")); availableFormat.setForeground(Qt::white);   // Verde (Liber)
-    unavailableFormat.setBackground(QColor("#dc2626")); unavailableFormat.setForeground(Qt::white); // Roșu (Ocupat)
-    previewFormat.setBackground(QColor("#f59e0b"));     previewFormat.setForeground(Qt::white);   // Portocaliu (Selecție)
-
-    pastFormat.setBackground(QColor("#334155"));
-    pastFormat.setForeground(QColor("#64748b")); // Text șters pentru trecut
+    availableFormat.setBackground(QColor("#16a34a")); availableFormat.setForeground(Qt::white);   // Verde
+    unavailableFormat.setBackground(QColor("#dc2626")); unavailableFormat.setForeground(Qt::white); // Roșu
+    previewFormat.setBackground(QColor("#f59e0b"));     previewFormat.setForeground(Qt::white);   // Portocaliu
+    pastFormat.setBackground(QColor("#334155"));        pastFormat.setForeground(QColor("#64748b")); // Gri
 
     QDateEdit *checkInEdit = new QDateEdit(QDate::currentDate());
     checkInEdit->setCalendarPopup(true); checkInEdit->setStyleSheet(dropDownStyle);
@@ -864,61 +872,40 @@ void MainWindow::bookRoom(int roomId)
     auto isSelectingCheckIn = std::make_shared<bool>(true);
     auto hasFinalSelection = std::make_shared<bool>(false);
 
-    // --- FUNCTIA LAMBDA DE REFRESH GRAFIC AL CALENDARULUI ---
+    // Funcția lambda de refresh culori calendar
     auto refreshCalendarColors = [=]() {
         QDate today = QDate::currentDate();
-
-        // MODIFICARE: Am setat bucla de la -365 la 365 de zile
-        // Acum trecutul este acoperit complet pe un an în urmă, transformând totul în gri
         for (int i = -365; i < 365; ++i) {
             QDate d = today.addDays(i);
-            if (d < today) {
-                calendar->setDateTextFormat(d, pastFormat);
-            } else {
-                calendar->setDateTextFormat(d, availableFormat);
-            }
+            if (d < today) { calendar->setDateTextFormat(d, pastFormat); }
+            else { calendar->setDateTextFormat(d, availableFormat); }
         }
-
-        // Aplicăm Roșu pentru rezervările din prezent sau viitor
         for (const QDate &bookedDate : selectedRoom->bookedDates) {
-            if (bookedDate >= today) {
-                calendar->setDateTextFormat(bookedDate, unavailableFormat);
-            }
+            if (bookedDate >= today) { calendar->setDateTextFormat(bookedDate, unavailableFormat); }
         }
-
-        // Aplicăm Portocaliu pentru Live Preview-ul selecției curente
         if (!(*isSelectingCheckIn) || *hasFinalSelection) {
             QDate startSel = checkInEdit->date();
             QDate endSel = checkOutEdit->date();
             for (QDate d = startSel; d <= endSel; d = d.addDays(1)) {
-                if (d >= today) {
-                    calendar->setDateTextFormat(d, previewFormat);
-                }
+                if (d >= today) { calendar->setDateTextFormat(d, previewFormat); }
             }
         }
     };
 
     refreshCalendarColors();
 
-    // Reîmprospătează culorile gri când utilizatorul dă paginile înapoi/înainte
     connect(calendar, &QCalendarWidget::currentPageChanged, dialog, [=](int, int) {
         refreshCalendarColors();
     });
 
-    // --- LOGICĂ CLICK ---
+    // Logică Click Calendar
     connect(calendar, &QCalendarWidget::clicked, this, [=](const QDate &date) {
         if (date < QDate::currentDate()) {
             QMessageBox::warning(dialog, "Error", "Cannot select past dates.");
             return;
         }
-
         if (selectedRoom->bookedDates.contains(date)) {
-            QMessageBox::warning(dialog, "Date Unavailable", "This day is already booked! Please select a green day.");
-            *isSelectingCheckIn = true;
-            *hasFinalSelection = false;
-            statusLbl->setText("Next action: Select CHECK-IN date");
-            statusLbl->setStyleSheet("color: #3b82f6; font-weight: bold;");
-            refreshCalendarColors();
+            QMessageBox::warning(dialog, "Date Unavailable", "This day is already booked!");
             return;
         }
 
@@ -933,12 +920,8 @@ void MainWindow::bookRoom(int roomId)
             if (date > checkInEdit->date()) {
                 bool hasBlockedNight = false;
                 for (QDate d = checkInEdit->date(); d < date; d = d.addDays(1)) {
-                    if (selectedRoom->bookedDates.contains(d)) {
-                        hasBlockedNight = true;
-                        break;
-                    }
+                    if (selectedRoom->bookedDates.contains(d)) { hasBlockedNight = true; break; }
                 }
-
                 if (hasBlockedNight) {
                     checkInEdit->setDate(date);
                     checkOutEdit->setDate(date.addDays(1));
@@ -962,7 +945,6 @@ void MainWindow::bookRoom(int roomId)
                 *hasFinalSelection = false;
             }
         }
-
         refreshCalendarColors();
     });
 
@@ -970,7 +952,7 @@ void MainWindow::bookRoom(int roomId)
     btnConfirm->setStyleSheet(primaryBtnStyle);
     layout->addWidget(btnConfirm);
 
-    // --- SALVARE REZERVARE ---
+    // --- LOGICĂ CONFIRMARE ȘI VERIFICARE BALANȚĂ ---
     connect(btnConfirm, &QPushButton::clicked, this, [=]() {
         QDate start = checkInEdit->date();
         QDate end = checkOutEdit->date();
@@ -980,10 +962,53 @@ void MainWindow::bookRoom(int roomId)
             return;
         }
 
+        // 1. CALCULUL COSTULUI TOTAL
+        int nights = start.daysTo(end);
+        double pricePerNight = selectedRoom->basePrice * (1.0 - currentAccommodationInDetails.discountPercent);
+        double totalCost = pricePerNight * nights;
+
+        // 2. VERIFICARE FONDURI DISPONIBILE
+        if (currentUser.balance < totalCost) {
+            // Creăm o mini-interfață customizată de eroare în stilul aplicației
+            QDialog *failDialog = new QDialog(dialog);
+            failDialog->setWindowTitle("Insufficient Funds");
+            failDialog->setFixedSize(380, 200);
+            failDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #ef4444; border-radius: 8px; }");
+
+            QVBoxLayout *failLayout = new QVBoxLayout(failDialog);
+            failLayout->setContentsMargins(25, 25, 25, 25);
+
+            QLabel *failMsg = new QLabel(failDialog);
+            failMsg->setText(QString("Booking failed! You do not have enough funds.\n\nTotal Cost: %1 €\nYour Balance: %2 €")
+                                 .arg(QString::number(totalCost, 'f', 2))
+                                 .arg(QString::number(currentUser.balance, 'f', 2)));
+            failMsg->setStyleSheet("color: #f8fafc; font-size: 14px; font-weight: bold;");
+            failMsg->setWordWrap(true);
+            failMsg->setAlignment(Qt::AlignCenter);
+            failLayout->addWidget(failMsg);
+            failLayout->addSpacing(15);
+
+            QPushButton *btnOk = new QPushButton("Ok, I understand", failDialog);
+            btnOk->setStyleSheet(dangerBtnStyle + " padding: 8px 15px; font-size: 13px;");
+            btnOk->setCursor(Qt::PointingHandCursor);
+            connect(btnOk, &QPushButton::clicked, failDialog, &QDialog::accept);
+            failLayout->addWidget(btnOk);
+
+            failDialog->exec();
+            failDialog->deleteLater();
+            return; // Oprim execuția rezervării aici!
+        }
+
+        // 3. ACTUALIZARE ȘI DDUCERE BALANȚĂ (Dacă are destui bani)
+        currentUser.balance -= totalCost;
+        if (lblBalanceVal) {
+            lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
+        }
+
+        // Salvăm nopțile rezervate
         for (QDate d = start; d < end; d = d.addDays(1)) {
             selectedRoom->bookedDates.append(d);
         }
-
         for (auto &acc : allAccommodations) {
             for (auto &r : acc.rooms) {
                 if (r.id == roomId) {
@@ -992,13 +1017,18 @@ void MainWindow::bookRoom(int roomId)
             }
         }
 
+        // Adăugare în istoric profil
         BookingHistory newBooking;
         newBooking.hotelName = currentAccommodationInDetails.name + " (" + selectedRoom->type + ")";
         newBooking.dateRange = start.toString("MMM dd") + " - " + end.toString("MMM dd, yyyy");
         newBooking.status = "Upcoming";
+        newBooking.userName = currentUser.name.isEmpty() ? "Tester Local" : currentUser.name;
+        newBooking.userEmail = currentUser.email;
         userBookings.append(newBooking);
 
-        QMessageBox::information(dialog, "Success", "Reservation completed successfully!");
+        // Pop-up succes în stil clasic
+        QMessageBox::information(dialog, "Success", QString("Reservation completed! Deducted %1 € from your balance.")
+                                                        .arg(QString::number(totalCost, 'f', 2)));
         dialog->accept();
 
         displayRooms(roomSearchBar ? roomSearchBar->text() : "");
@@ -1011,19 +1041,18 @@ void MainWindow::updateBookingHistoryUi()
 {
     if (!historyLayout) return;
 
-    // Curățăm elementele vizuale vechi din layout ca să nu se suprapună
     QLayoutItem *child;
     while ((child = historyLayout->takeAt(0)) != nullptr) {
-        if (child->widget())
-            delete child->widget();
+        if (child->widget()) delete child->widget();
         delete child;
     }
 
-    // Desenăm cardurile din vectorul actualizat userBookings
     for (const auto &b : userBookings) {
+        if (b.userEmail != currentUser.email) {
+            continue; // Daca rezervarea nu este a utilizatorului curent, nu o afisam!
+        }
         QFrame *fr = new QFrame();
-        fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 8px; border: 1px "
-                          "solid #334155; padding: 5px; }");
+        fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 8px; border: 1px solid #334155; padding: 5px; }");
         QHBoxLayout *cl = new QHBoxLayout(fr);
         QVBoxLayout *inf = new QVBoxLayout();
 
@@ -1036,12 +1065,181 @@ void MainWindow::updateBookingHistoryUi()
         inf->addWidget(hD);
 
         QLabel *st = new QLabel(b.status);
-        st->setStyleSheet(b.status == "Finished"
-                              ? "color:#22c55e; border: none; background: transparent;"
-                              : "color:#3b82f6; border: none; background: transparent;");
+        // --- MODIFICARE STILIZARE STATUS CLIENT ---
+        if (b.status == "Finished") {
+            st->setStyleSheet("color:#22c55e; border: none; background: transparent; font-weight: bold;");
+        } else if (b.status == "Cancelled") {
+            st->setStyleSheet("color:#ef4444; border: none; background: transparent; font-weight: bold;"); // Roșu pentru anulat
+        } else {
+            st->setStyleSheet("color:#3b82f6; border: none; background: transparent; font-weight: bold;");
+        }
+        // ------------------------------------------
+
         cl->addLayout(inf);
         cl->addStretch();
         cl->addWidget(st);
         historyLayout->addWidget(fr);
+    }
+}
+
+QWidget *MainWindow::createAdminDashboardWidget()
+{
+    QWidget *w = new QWidget();
+    QVBoxLayout *ml = new QVBoxLayout(w);
+    ml->setContentsMargins(40, 30, 40, 30);
+
+    // Header Admin
+    QHBoxLayout *h = new QHBoxLayout();
+    QLabel *pt = new QLabel("🔑 Admin Control Panel");
+    pt->setStyleSheet("font-size: 24px; font-weight: bold; color: #ef4444;"); // Roșu pentru admin
+
+    QPushButton *btnLogout = new QPushButton("Logout Admin");
+    btnLogout->setStyleSheet(dangerBtnStyle);
+    btnLogout->setCursor(Qt::PointingHandCursor);
+    connect(btnLogout, &QPushButton::clicked, this, &MainWindow::goToLogin);
+
+    h->addWidget(pt);
+    h->addStretch();
+    h->addWidget(btnLogout);
+    ml->addLayout(h);
+    ml->addSpacing(20);
+
+    QLabel *sub = new QLabel("Global Booking History (All Users)");
+    sub->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6; margin-bottom: 10px;");
+    ml->addWidget(sub);
+
+    // Zona de Scroll pentru rezervări
+    QScrollArea *sa = new QScrollArea();
+    sa->setWidgetResizable(true);
+    sa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
+
+    QWidget *container = new QWidget();
+    adminHistoryLayout = new QVBoxLayout(container);
+    adminHistoryLayout->setAlignment(Qt::AlignTop);
+
+    sa->setWidget(container);
+    ml->addWidget(sa);
+
+    return w;
+}
+
+void MainWindow::updateAdminDashboardUi()
+{
+    if (!adminHistoryLayout) return;
+
+    // Curățăm elementele grafice vechi din layout-ul de admin
+    QLayoutItem *child;
+    while ((child = adminHistoryLayout->takeAt(0)) != nullptr) {
+        if (child->widget())
+            delete child->widget();
+        delete child;
+    }
+
+    // 1. Rezervări simulate fixe (baza de date generală)
+    struct GlobalBooking { QString user; QString hotel; QString dates; QString status; };
+    QList<GlobalBooking> databaseBookings = {
+        {"George Popescu", "Transylvania Castle (Deluxe Suite)", "May 10 - May 14, 2026", "Finished"},
+        {"Elena Ionescu", "Retezat Cabin (Double Room)", "June 01 - June 05, 2026", "Upcoming"}
+    };
+
+    // 2. Funcția lambda ajutătoare pentru randarea unui card în Admin
+    auto addCard = [this](QString user, QString hotel, QString dates, QString status, bool canCancel, int bookingIndex = -1) {
+        QFrame *fr = new QFrame();
+        fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 10px; border: 1px solid #334155; padding: 12px; margin-bottom: 5px; }");
+        QHBoxLayout *cl = new QHBoxLayout(fr);
+        QVBoxLayout *inf = new QVBoxLayout();
+
+        QLabel *uL = new QLabel("👤 Customer: " + user);
+        uL->setStyleSheet("font-weight: bold; color: #94a3b8; font-size: 13px; border: none; background: transparent;");
+        QLabel *hN = new QLabel(hotel);
+        hN->setStyleSheet("font-weight: bold; color: white; font-size: 16px; border: none; background: transparent;");
+        QLabel *hD = new QLabel("📅 " + dates);
+        hD->setStyleSheet("color: #64748b; font-size: 13px; border: none; background: transparent;");
+
+        inf->addWidget(uL);
+        inf->addWidget(hN);
+        inf->addWidget(hD);
+        cl->addLayout(inf);
+        cl->addStretch();
+
+        QLabel *st = new QLabel(status);
+        if (status == "Finished") {
+            st->setStyleSheet("color:#22c55e; font-weight: bold; border: none; background: transparent; margin-right: 15px;");
+        } else if (status == "Cancelled") {
+            st->setStyleSheet("color:#ef4444; font-weight: bold; border: none; background: transparent; margin-right: 15px;");
+        } else {
+            st->setStyleSheet("color:#3b82f6; font-weight: bold; border: none; background: transparent; margin-right: 15px;");
+        }
+        cl->addWidget(st);
+
+        // Buton anulare pentru Admin
+        if (canCancel && status != "Cancelled" && status != "Finished") {
+            QPushButton *btnCancel = new QPushButton("Cancel Reservation");
+            btnCancel->setStyleSheet(dangerBtnStyle + " padding: 5px 10px; font-size: 12px;");
+            btnCancel->setCursor(Qt::PointingHandCursor);
+
+            // --- NOU: LOGICĂ MINI-INTERFAȚĂ CUSTOMIZATĂ DE CONFIRMARE ---
+            connect(btnCancel, &QPushButton::clicked, this, [this, bookingIndex]() {
+                // Creăm un dialog pop-up personalizat
+                QDialog *confDialog = new QDialog(this);
+                confDialog->setWindowTitle("Confirm Action");
+                confDialog->setFixedSize(380, 180);
+                confDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #334155; border-radius: 8px; }");
+
+                QVBoxLayout *layout = new QVBoxLayout(confDialog);
+                layout->setContentsMargins(25, 25, 25, 25);
+
+                // Textul întrebării stilizat ca în aplicație
+                QLabel *msgLabel = new QLabel("Are you sure you want to cancel this reservation?", confDialog);
+                msgLabel->setStyleSheet("color: #f8fafc; font-size: 15px; font-weight: bold;");
+                msgLabel->setWordWrap(true);
+                msgLabel->setAlignment(Qt::AlignCenter);
+                layout->addWidget(msgLabel);
+                layout->addSpacing(15);
+
+                // Layout orizontal pentru butoane
+                QHBoxLayout *btnLayout = new QHBoxLayout();
+
+                QPushButton *btnNo = new QPushButton("No, Keep It", confDialog);
+                btnNo->setStyleSheet(secondaryBtnStyle + " padding: 8px 15px; font-size: 13px;");
+                btnNo->setCursor(Qt::PointingHandCursor);
+
+                QPushButton *btnYes = new QPushButton("Yes, Cancel", confDialog);
+                btnYes->setStyleSheet(dangerBtnStyle + " padding: 8px 15px; font-size: 13px;");
+                btnYes->setCursor(Qt::PointingHandCursor);
+
+                btnLayout->addWidget(btnNo);
+                btnLayout->addWidget(btnYes);
+                layout->addLayout(btnLayout);
+
+                // Conectăm butoanele la acțiunile dialogului (Accept / Reject)
+                connect(btnYes, &QPushButton::clicked, confDialog, &QDialog::accept);
+                connect(btnNo, &QPushButton::clicked, confDialog, &QDialog::reject);
+
+                // Executăm mini-interfața și verificăm dacă s-a apăsat "Yes"
+                if (confDialog->exec() == QDialog::Accepted) {
+                    userBookings[bookingIndex].status = "Cancelled";
+                    updateAdminDashboardUi(); // Refresh la listă
+                }
+
+                // Curățăm automat memoria pop-up-ului după închidere
+                confDialog->deleteLater();
+            });
+            // -------------------------------------------------------------
+
+            cl->addWidget(btnCancel);
+        }
+
+        adminHistoryLayout->addWidget(fr);
+    };
+
+
+    for (const auto &b : databaseBookings) {
+        addCard(b.user, b.hotel, b.dates, b.status, false);
+    }
+
+    for (int i = 0; i < userBookings.size(); ++i) {
+        const auto &b = userBookings[i];
+        addCard(b.userName, b.hotelName, b.dateRange, b.status, true, i);
     }
 }

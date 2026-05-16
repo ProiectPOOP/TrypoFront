@@ -48,6 +48,8 @@ struct BookingHistory
     QString hotelName;
     QString dateRange;
     QString status;
+    QString userName;
+    QString userEmail;
 };
 
 // datele despre utilizator
@@ -87,6 +89,9 @@ private:
     QWidget *createMainAppWidget();
     QWidget *createUserProfileWidget();
     QWidget *createDetailsWidget();
+    QWidget *createAdminDashboardWidget();
+    void updateAdminDashboardUi();
+    QVBoxLayout *adminHistoryLayout = nullptr;
     QString ip = "10.10.25.219";
     void populateAccommodations(const QString &f = "");
     void displayRooms(const QString &filter = "");
