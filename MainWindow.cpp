@@ -65,9 +65,16 @@ void MainWindow::processRegister()
         QMessageBox::warning(this, "Error", "Invalid email.");
         return;
     }
-    if (ps.length() < 6 || !QRegularExpression("[A-Z]").match(ps).hasMatch()
-        || !QRegularExpression("[^a-zA-Z0-9]").match(ps).hasMatch()) {
-        QMessageBox::warning(this, "Error", "Weak password.");
+    if (ps.length() < 6){
+        QMessageBox::warning(this, "Error", "Weak password, it must have minimum 6 characters.");
+        return;
+    }
+    if (!QRegularExpression("[A-Z]").match(ps).hasMatch()){
+        QMessageBox::warning(this, "Error", "Weak password, it must have minimum 1 capital letter.");
+        return;
+    }
+    if (!QRegularExpression("[^a-zA-Z0-9]").match(ps).hasMatch()) {
+        QMessageBox::warning(this, "Error", "Weak password, it must have minimum one special character.");
         return;
     }
     QString hashedPassword = hashPassword(ps);
