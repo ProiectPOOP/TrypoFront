@@ -53,6 +53,7 @@ struct BookingHistory
 struct User
 {
     QString name, email, password, phone, dob, country, gender, address;
+    double balance; // soldul curent al utilizatorului
 };
 
 // slot = mecanism prin care butoanele apeleaza functii
@@ -106,7 +107,7 @@ private:
 
     // interfata my profile
     QLabel *lblNameVal, *lblEmailVal, *lblPhoneVal, *lblDobVal, *lblCountryVal, *lblGenderVal,
-        *lblAddressVal;
+        *lblAddressVal, *lblBalanceVal;
 
     // ob. in interfata unei unitati de cazare
     QLabel *detName, *detAddress, *detPromo;

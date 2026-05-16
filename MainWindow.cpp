@@ -297,6 +297,9 @@ QWidget *MainWindow::createUserProfileWidget()
     lblGenderVal->setStyleSheet(vs);
     lblAddressVal = new QLabel("N/A");
     lblAddressVal->setStyleSheet(vs);
+    lblBalanceVal = new QLabel("0.00 €");
+    lblBalanceVal->setStyleSheet("color: #22c55e; font-size: 16px; font-weight: bold;");
+
     f->addRow(new QLabel("Name:"), lblNameVal);
     f->addRow(new QLabel("Email:"), lblEmailVal);
     f->addRow(new QLabel("Phone:"), lblPhoneVal);
@@ -304,6 +307,7 @@ QWidget *MainWindow::createUserProfileWidget()
     f->addRow(new QLabel("Country:"), lblCountryVal);
     f->addRow(new QLabel("Gender:"), lblGenderVal);
     f->addRow(new QLabel("Address:"), lblAddressVal);
+    f->addRow(new QLabel("Current Balance:"), lblBalanceVal);
     ml->addWidget(detW);
     QLabel *sub2 = new QLabel("Your Booking History");
     sub2->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6;");
@@ -589,13 +593,33 @@ void MainWindow::goToRegister()
 }
 void MainWindow::goToLogin()
 {
-    QJsonObject req;
-    req["type"] = "FORCE_LOGOUT";
-    req["email"] = currentUser.email;
-    m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+    // Trimitem FORCE_LOGOUT doar dacă utilizatorul vine din aplicația principală (pagina 2) sau profil (pagina 3)
+    // Dacă vine de la Register (pagina 1), ignorăm trimiterea pachetului către server
+    if (stackedWidget->currentIndex() == 2 || stackedWidget->currentIndex() == 3) {
+        QJsonObject req;
+        req["type"] = "FORCE_LOGOUT";
+        req["email"] = currentUser.email;
+        m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+    }
+
+    // Golește câmpurile de la Register (nume, email, telefon etc.)
     clearRegisterFields();
+
+    // Golește câmpurile de la LOGIN
+    if (loginEmailInput)
+        loginEmailInput->clear();
+    if (loginPasswordInput)
+        loginPasswordInput->clear();
+
+    // Golește bara de căutare din aplicația principală
     if (searchBarInput)
         searchBarInput->clear();
+
+    // Curăță lista de hoteluri din memorie și de pe ecran
+    allAccommodations.clear();
+    populateAccommodations("");
+
+    // Ne întoarcem în siguranță la ecranul de Login (pagina 0) cu toate câmpurile curate
     stackedWidget->setCurrentIndex(0);
 }
 void MainWindow::goToUserProfile()
@@ -652,6 +676,7 @@ void MainWindow::handleBackendMessage(const QString &message)
             currentUser.country = userData["country"].toString();
             currentUser.dob = userData["dob"].toString();
             currentUser.gender = userData["gender"].toString();
+            currentUser.balance = userData["balance"].toDouble(0.0);
 
             lblNameVal->setText(currentUser.name);
             lblEmailVal->setText(currentUser.email);
@@ -660,6 +685,8 @@ void MainWindow::handleBackendMessage(const QString &message)
             lblCountryVal->setText(currentUser.country);
             lblGenderVal->setText(currentUser.gender);
             lblAddressVal->setText(currentUser.address);
+            lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
+
             QJsonObject req;
             req["type"] = "GET_ACCOMMODATIONS";
             m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
