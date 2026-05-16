@@ -27,6 +27,7 @@ struct Room
     QList<Facility> facilities;
     double basePrice;
     bool hasSofa; // creste capacitatea cu 1
+    QList<QDate> bookedDates;
 };
 
 struct Accommodation
@@ -76,6 +77,7 @@ private slots:
     void filterAccommodations(const QString &query);
     void filterRooms(const QString &query);
     void openAccommodationDetails(const Accommodation &acc);
+    void bookRoom(int roomId);
 
 private:
     // initializam interfata cu utilizatorul (cele 5 interfete)
@@ -108,6 +110,9 @@ private:
     // interfata my profile
     QLabel *lblNameVal, *lblEmailVal, *lblPhoneVal, *lblDobVal, *lblCountryVal, *lblGenderVal,
         *lblAddressVal, *lblBalanceVal;
+
+    QVBoxLayout *historyLayout; // <--- ADĂUGARE: pointer pentru a actualiza istoricul din cod
+    void updateBookingHistoryUi(); // <--- ADĂUGARE: funcție ce redesenează lista de rezervări
 
     // ob. in interfata unei unitati de cazare
     QLabel *detName, *detAddress, *detPromo;
