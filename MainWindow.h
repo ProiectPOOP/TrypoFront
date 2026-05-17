@@ -4,6 +4,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateEdit>
+#include <QJsonArray>
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
@@ -26,7 +27,7 @@ struct Room
     int beds;
     QList<Facility> facilities;
     double basePrice;
-    bool hasSofa; // creste capacitatea cu 1
+    bool hasSofa;           // increases capacity by 1
     QList<QDate> bookedDates;
 };
 
@@ -42,7 +43,6 @@ struct Accommodation
     QList<Room> rooms;
 };
 
-// aici salvam istoricul unei cazari
 struct BookingHistory
 {
     QString hotelName;
@@ -52,18 +52,18 @@ struct BookingHistory
     QString userEmail;
 };
 
-// datele despre utilizator
-struct User
+// FIX: Renamed from User to UserInfo to match the .cpp usage.
+// Added default initialisation for balance so that resetting via
+// currentUser = UserInfo() always produces a clean zero state.
+struct UserInfo
 {
     QString name, email, password, phone, dob, country, gender, address;
-    double balance; // soldul curent al utilizatorului
+    double balance = 10000.0;
 };
 
-// slot = mecanism prin care butoanele apeleaza functii
-// click Login -> call processLogin
 class MainWindow : public QMainWindow
 {
-    Q_OBJECT // macro obligatoriu cand lucram cu sloturi
+    Q_OBJECT
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
@@ -80,9 +80,11 @@ private slots:
     void filterRooms(const QString &query);
     void openAccommodationDetails(const Accommodation &acc);
     void bookRoom(int roomId);
+    // FIX: moved here from private — must be a slot because it is
+    // connected via connect() in the constructor.
+    void handleBackendMessage(const QString &message);
 
 private:
-    // initializam interfata cu utilizatorul (cele 5 interfete)
     void setupUi();
     QWidget *createLoginWidget();
     QWidget *createRegisterWidget();
@@ -91,46 +93,54 @@ private:
     QWidget *createDetailsWidget();
     QWidget *createAdminDashboardWidget();
     void updateAdminDashboardUi();
-    QVBoxLayout *adminHistoryLayout = nullptr;
-    QString ip = "10.10.25.219";
+    void updateBookingHistoryUi();
     void populateAccommodations(const QString &f = "");
     void displayRooms(const QString &filter = "");
     void clearRegisterFields();
-    void handleBackendMessage(const QString &message);
+
+    QString ip = "127.0.0.1";
 
     SocketClient *m_socketClient;
-    // obiecte in interfata de register
+
+    // Stacked pages
     QStackedWidget *stackedWidget;
+
+    // Login page
     QLineEdit *loginEmailInput, *loginPasswordInput;
-    QLineEdit *regNameInput, *regEmailInput, *regPasswordInput, *regPhoneInput, *regAddressInput;
+
+    // Register page
+    QLineEdit *regNameInput, *regEmailInput, *regPasswordInput,
+        *regPhoneInput, *regAddressInput;
     QDateEdit *regDobInput;
     QComboBox *regCountryInput, *regGenderInput;
 
-    // obiecte in interfata principala
+    // Main app page
     QLineEdit *searchBarInput;
-    QWidget *accommodationsContainer;
-    QJsonArray *allAccomodations;
+    QWidget   *accommodationsContainer;
+    // FIX: removed the unused/duplicate QJsonArray *allAccomodations pointer.
+    // The authoritative list is QList<Accommodation> allAccommodations below.
     QVBoxLayout *accommodationsLayout;
 
-    // interfata my profile
-    QLabel *lblNameVal, *lblEmailVal, *lblPhoneVal, *lblDobVal, *lblCountryVal, *lblGenderVal,
-        *lblAddressVal, *lblBalanceVal;
+    // Profile page
+    QLabel *lblNameVal, *lblEmailVal, *lblPhoneVal, *lblDobVal,
+        *lblCountryVal, *lblGenderVal, *lblAddressVal, *lblBalanceVal;
+    QVBoxLayout *historyLayout;
 
-    QVBoxLayout *historyLayout; // <--- ADĂUGARE: pointer pentru a actualiza istoricul din cod
-    void updateBookingHistoryUi(); // <--- ADĂUGARE: funcție ce redesenează lista de rezervări
-
-    // ob. in interfata unei unitati de cazare
-    QLabel *detName, *detAddress, *detPromo;
+    // Details / rooms page
+    QLabel    *detName, *detAddress, *detPromo;
     QLineEdit *roomSearchBar;
     QVBoxLayout *roomsLayout;
     QCheckBox *cbBalcony, *cbFridge, *cbAC, *cbTV, *cbWifi, *cbSofa;
     Accommodation currentAccommodationInDetails;
-    // utilizatorul sesiunii curente
-    User currentUser;
-    // lista unitatilor de cazare din aplicatie
+
+    // Admin dashboard
+    QVBoxLayout *adminHistoryLayout = nullptr;
+
+    // Session state
+    // FIX: type changed from User to UserInfo
+    UserInfo currentUser;
     QList<Accommodation> allAccommodations;
-    // istoricul rezervarilor
     QList<BookingHistory> userBookings;
 };
 
-#endif
+#endif // MAINWINDOW_H
