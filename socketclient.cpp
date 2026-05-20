@@ -1,5 +1,6 @@
 #include "socketclient.h"
 #include <QDebug>
+#include <QMessageBox>
 #include <QtEndian>
 
 SocketClient::SocketClient(QObject *parent)
@@ -94,4 +95,5 @@ void SocketClient::onErrorOccurred(QAbstractSocket::SocketError socketError)
 {
     Q_UNUSED(socketError)
     qWarning() << "Socket error:" << m_socket->errorString();
+    QMessageBox::warning(nullptr, "Server Error","Conexiunea la server nu a reusit");
 }
