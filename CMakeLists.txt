@@ -24,6 +24,8 @@ set(PROJECT_SOURCES
 # 3. Definim executabilul
 qt_add_executable(Trypo_frontend MANUAL_FINALIZATION ${PROJECT_SOURCES}
     AdminDashboardPage.cpp AdminDashboardPage.h AppData.h CMakeLists.txt DetailsPage.cpp DetailsPage.h json.hpp LoginPage.cpp LoginPage.h main.cpp Main.qml MainAppPage.cpp MainAppPage.h MainWindow.cpp MainWindow.h RegisterPage.cpp RegisterPage.h socketclient.cpp socketclient.h Styles.h UserProfilePage.cpp UserProfilePage.h
+    img/destination.png
+    resources.qrc
 
 
 
