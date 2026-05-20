@@ -1,6 +1,15 @@
 #include "MainWindow.h"
+#include "AdminDashboardPage.h"
+#include "DetailsPage.h"
+#include "LoginPage.h"
+#include "MainAppPage.h"
+#include "RegisterPage.h"
+#include "Styles.h"
+#include "UserProfilePage.h"
+
 #include <QCalendarWidget>
 #include <QCryptographicHash>
+#include <QDialog>
 #include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -12,12 +21,12 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QStatusBar>
-#include <QVBoxLayout>
-#include "Styles.h"
-#include "socketclient.h"
-#include <QDialog>
 #include <QTextCharFormat>
+#include <QVBoxLayout>
 
+// ---------------------------------------------------------------
+//  CONSTRUCTOR / DESTRUCTOR
+// ---------------------------------------------------------------
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
@@ -33,15 +42,18 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow() {}
 
+// ---------------------------------------------------------------
+//  SETUP UI
+// ---------------------------------------------------------------
 void MainWindow::setupUi()
 {
     stackedWidget = new QStackedWidget(this);
-    stackedWidget->addWidget(createLoginWidget());          // 0
-    stackedWidget->addWidget(createRegisterWidget());       // 1
-    stackedWidget->addWidget(createMainAppWidget());        // 2
-    stackedWidget->addWidget(createUserProfileWidget());    // 3
-    stackedWidget->addWidget(createDetailsWidget());        // 4
-    stackedWidget->addWidget(createAdminDashboardWidget()); // 5
+    stackedWidget->addWidget(LoginPage::createWidget(this, loginEmailInput, loginPasswordInput));                                                                                     // 0
+    stackedWidget->addWidget(RegisterPage::createWidget(this, regNameInput, regEmailInput, regPasswordInput, regPhoneInput, regAddressInput, regDobInput, regCountryInput, regGenderInput)); // 1
+    stackedWidget->addWidget(MainAppPage::createWidget(this, searchBarInput, accommodationsContainer, accommodationsLayout));                                                         // 2
+    stackedWidget->addWidget(UserProfilePage::createWidget(this, lblNameVal, lblEmailVal, lblPhoneVal, lblDobVal, lblCountryVal, lblGenderVal, lblAddressVal, lblBalanceVal, historyLayout)); // 3
+    stackedWidget->addWidget(DetailsPage::createWidget(this, detName, detAddress, detPromo, roomSearchBar, roomsLayout, cbBalcony, cbFridge, cbAC, cbTV, cbWifi, cbSofa));           // 4
+    stackedWidget->addWidget(AdminDashboardPage::createWidget(this, adminHistoryLayout));                                                                                             // 5
     setCentralWidget(stackedWidget);
 }
 
@@ -53,6 +65,58 @@ static QString hashPassword(const QString &password)
     QByteArray passwordData = password.toUtf8();
     QByteArray hashedData = QCryptographicHash::hash(passwordData, QCryptographicHash::Sha256);
     return hashedData.toHex();
+}
+
+// ---------------------------------------------------------------
+//  NAVIGATION SLOTS
+// ---------------------------------------------------------------
+void MainWindow::goToRegister()
+{
+    stackedWidget->setCurrentIndex(1);
+}
+
+void MainWindow::goToLogin()
+{
+    // Only send FORCE_LOGOUT when coming from authenticated pages (2 or 3).
+    // Also guard against empty email to avoid sending a junk packet when the
+    // user navigates back from the register page before ever logging in.
+    int idx = stackedWidget->currentIndex();
+    if ((idx == 2 || idx == 3) && !currentUser.email.isEmpty()) {
+        QJsonObject req;
+        req["type"]  = "FORCE_LOGOUT";
+        req["email"] = currentUser.email;
+        m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+    }
+
+    currentUser = UserInfo();
+
+    clearRegisterFields();
+    if (loginEmailInput)    loginEmailInput->clear();
+    if (loginPasswordInput) loginPasswordInput->clear();
+    if (searchBarInput)     searchBarInput->clear();
+
+    allAccommodations.clear();
+    populateAccommodations("");
+
+    stackedWidget->setCurrentIndex(0);
+}
+
+void MainWindow::goToUserProfile()
+{
+    updateBookingHistoryUi();
+    stackedWidget->setCurrentIndex(3);
+}
+
+void MainWindow::backToMainApp()
+{
+    stackedWidget->setCurrentIndex(2);
+}
+
+void MainWindow::adminLogout()
+{
+    if (loginEmailInput)    loginEmailInput->clear();
+    if (loginPasswordInput) loginPasswordInput->clear();
+    stackedWidget->setCurrentIndex(0);
 }
 
 // ---------------------------------------------------------------
@@ -98,7 +162,7 @@ void MainWindow::processRegister()
     m_socketClient->sendMessage(QJsonDocument(userObj).toJson(QJsonDocument::Compact));
     qDebug() << "Register request sent for:" << em;
 
-    // FIX: Do NOT call goToLogin() here.
+    // Do NOT call goToLogin() here.
     // We wait for the REGISTER_RESPONSE from the server before switching pages.
     // Previously the page switched immediately, so error messages were never shown
     // to the user because the login page had already been rendered.
@@ -130,342 +194,31 @@ void MainWindow::processLogin()
 }
 
 // ---------------------------------------------------------------
-//  UI BUILDERS
+//  FILTER SLOTS
 // ---------------------------------------------------------------
-QWidget *MainWindow::createLoginWidget()
+void MainWindow::filterAccommodations(const QString &q)
 {
-    QWidget *w = new QWidget();
-    QVBoxLayout *l = new QVBoxLayout(w);
-    l->setAlignment(Qt::AlignCenter);
-
-    QLabel *t = new QLabel("Welcome back to Trypo", w);
-    t->setStyleSheet("font-size: 28px; font-weight: bold; color: #f8fafc; margin-bottom: 25px;");
-
-    loginEmailInput = new QLineEdit(w);
-    loginEmailInput->setPlaceholderText("Email");
-    loginEmailInput->setStyleSheet(lineEditStyle);
-
-    loginPasswordInput = new QLineEdit(w);
-    loginPasswordInput->setPlaceholderText("Password");
-    loginPasswordInput->setEchoMode(QLineEdit::Password);
-    loginPasswordInput->setStyleSheet(lineEditStyle);
-
-    QPushButton *lb = new QPushButton("Login", w);
-    lb->setStyleSheet(primaryBtnStyle);
-    lb->setCursor(Qt::PointingHandCursor);
-
-    QPushButton *rb = new QPushButton("Create account", w);
-    rb->setStyleSheet(secondaryBtnStyle);
-    rb->setCursor(Qt::PointingHandCursor);
-
-    l->addWidget(t);
-    l->addWidget(loginEmailInput);
-    l->addWidget(loginPasswordInput);
-    l->addSpacing(15);
-    l->addWidget(lb);
-    l->addWidget(rb);
-
-    connect(lb, &QPushButton::clicked, this, &MainWindow::processLogin);
-    connect(rb, &QPushButton::clicked, this, &MainWindow::goToRegister);
-    return w;
+    populateAccommodations(q);
 }
 
-QWidget *MainWindow::createRegisterWidget()
+void MainWindow::filterRooms(const QString &query)
 {
-    QWidget *w = new QWidget();
-    QVBoxLayout *ml = new QVBoxLayout(w);
-    ml->setContentsMargins(50, 20, 50, 20);
-
-    QLabel *t = new QLabel("Register to Trypo", w);
-    t->setStyleSheet("font-size: 26px; font-weight: bold; color: #f8fafc; margin-bottom: 20px;");
-
-    QFormLayout *fl = new QFormLayout();
-    fl->setSpacing(12);
-
-    regNameInput     = new QLineEdit(); regNameInput->setStyleSheet(lineEditStyle);
-    regEmailInput    = new QLineEdit(); regEmailInput->setStyleSheet(lineEditStyle);
-    regPasswordInput = new QLineEdit(); regPasswordInput->setEchoMode(QLineEdit::Password);
-    regPasswordInput->setStyleSheet(lineEditStyle);
-    regPhoneInput    = new QLineEdit(); regPhoneInput->setStyleSheet(lineEditStyle);
-    regAddressInput  = new QLineEdit(); regAddressInput->setStyleSheet(lineEditStyle);
-
-    regDobInput = new QDateEdit(QDate(2000, 1, 1));
-    regDobInput->setCalendarPopup(true);
-    regDobInput->setStyleSheet(dropDownStyle);
-
-    QCalendarWidget *calendar = regDobInput->calendarWidget();
-    calendar->setStyleSheet(
-        "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #0f172a; padding: 4px; }"
-        "QCalendarWidget QToolButton { color: white; background-color: transparent; border: none; font-weight: bold; font-size: 14px; padding: 4px 8px; margin: 0px 2px; }"
-        "QCalendarWidget QToolButton:hover { background-color: #2563eb; border-radius: 4px; }"
-        "QCalendarWidget QMenu { background-color: #1e293b; color: white; border: 1px solid #475569; }"
-        "QCalendarWidget QSpinBox { background-color: #1e293b; color: white; border: 1px solid #475569; border-radius: 3px; padding: 2px 4px; min-width: 65px; margin-left: 10px; }"
-        "QCalendarWidget QSpinBox::up-button, QCalendarWidget QSpinBox::down-button { width: 16px; }"
-        "QCalendarWidget QAbstractItemView:enabled { background-color: #1e293b; color: white; selection-background-color: #2563eb; selection-color: white; border: none; outline: none; }"
-        "QCalendarWidget QAbstractItemView:disabled { color: #475569; }");
-
-    regCountryInput = new QComboBox();
-    regCountryInput->addItems({"Romania", "Moldova", "UK", "Germany"});
-    regCountryInput->setStyleSheet(dropDownStyle);
-
-    regGenderInput = new QComboBox();
-    regGenderInput->addItems({"Male", "Female", "Unspecified"});
-    regGenderInput->setStyleSheet(dropDownStyle);
-
-    QString ls = "font-weight: bold; color: #94a3b8; font-size: 14px;";
-    auto addR = [&](const QString &txt, QWidget *in) {
-        QLabel *lbl = new QLabel(txt);
-        lbl->setStyleSheet(ls);
-        fl->addRow(lbl, in);
-    };
-    addR("Full Name:",    regNameInput);
-    addR("Email:",        regEmailInput);
-    addR("Password:",     regPasswordInput);
-    addR("Phone:",        regPhoneInput);
-    addR("Date of Birth:", regDobInput);
-    addR("Country:",      regCountryInput);
-    addR("Gender:",       regGenderInput);
-    addR("Address:",      regAddressInput);
-
-    ml->addWidget(t);
-    ml->addLayout(fl);
-
-    QPushButton *rb = new QPushButton("Register Now", w);
-    rb->setStyleSheet(primaryBtnStyle);
-    QPushButton *bb = new QPushButton("Back to Login", w);
-    bb->setStyleSheet(secondaryBtnStyle);
-
-    ml->addSpacing(20);
-    ml->addWidget(rb);
-    ml->addWidget(bb);
-
-    connect(rb, &QPushButton::clicked, this, &MainWindow::processRegister);
-    connect(bb, &QPushButton::clicked, this, &MainWindow::goToLogin);
-    return w;
+    displayRooms(query);
 }
 
-QWidget *MainWindow::createMainAppWidget()
+// ---------------------------------------------------------------
+//  CLEAR REGISTER FIELDS
+// ---------------------------------------------------------------
+void MainWindow::clearRegisterFields()
 {
-    QWidget *w = new QWidget();
-    QVBoxLayout *ml = new QVBoxLayout(w);
-    ml->setContentsMargins(20, 20, 20, 20);
-
-    QHBoxLayout *hl = new QHBoxLayout();
-    QLabel *t = new QLabel("Recommended for you");
-    t->setStyleSheet("font-size: 22px; font-weight: bold; color: #f8fafc;");
-
-    searchBarInput = new QLineEdit();
-    searchBarInput->setPlaceholderText("Where do you want to go?");
-    searchBarInput->setStyleSheet(lineEditStyle);
-    connect(searchBarInput, &QLineEdit::textChanged, this, &MainWindow::filterAccommodations);
-
-    QPushButton *pb = new QPushButton("👤 My Profile");
-    pb->setStyleSheet(secondaryBtnStyle);
-    pb->setCursor(Qt::PointingHandCursor);
-
-    QPushButton *lb = new QPushButton("Logout");
-    lb->setStyleSheet(dangerBtnStyle);
-    lb->setCursor(Qt::PointingHandCursor);
-
-    hl->addWidget(t);
-    hl->addStretch();
-    hl->addWidget(searchBarInput);
-    hl->addWidget(pb);
-    hl->addWidget(lb);
-    ml->addLayout(hl);
-
-    QScrollArea *sa = new QScrollArea();
-    sa->setWidgetResizable(true);
-    sa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-
-    accommodationsContainer = new QWidget();
-    accommodationsLayout = new QVBoxLayout(accommodationsContainer);
-    accommodationsLayout->setAlignment(Qt::AlignTop);
-    sa->setWidget(accommodationsContainer);
-    ml->addWidget(sa);
-
-    // FIX: Do NOT request accommodations here at construction time.
-    // The user is not logged in yet when this widget is built, so a request
-    // sent now would be unauthenticated. We send GET_ACCOMMODATIONS inside
-    // handleBackendMessage after a successful LOGIN_RESPONSE instead.
-
-    connect(pb, &QPushButton::clicked, this, &MainWindow::goToUserProfile);
-    connect(lb, &QPushButton::clicked, this, &MainWindow::goToLogin);
-    return w;
-}
-
-QWidget *MainWindow::createUserProfileWidget()
-{
-    QWidget *w = new QWidget();
-    QVBoxLayout *ml = new QVBoxLayout(w);
-    ml->setContentsMargins(40, 30, 40, 30);
-
-    QHBoxLayout *h = new QHBoxLayout();
-    QPushButton *bb = new QPushButton("← Back to Explore");
-    bb->setStyleSheet(secondaryBtnStyle);
-    connect(bb, &QPushButton::clicked, this, &MainWindow::backToMainApp);
-
-    QLabel *pt = new QLabel("Account Settings");
-    pt->setStyleSheet("font-size: 24px; font-weight: bold; color: white;");
-    h->addWidget(bb);
-    h->addSpacing(20);
-    h->addWidget(pt);
-    h->addStretch();
-    ml->addLayout(h);
-    ml->addSpacing(30);
-
-    QHBoxLayout *splitLayout = new QHBoxLayout();
-    splitLayout->setSpacing(50);
-
-    // Left column: customer info
-    QVBoxLayout *leftColumn = new QVBoxLayout();
-    leftColumn->setAlignment(Qt::AlignTop);
-
-    QLabel *sub1 = new QLabel("Customer Information");
-    sub1->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6;");
-    leftColumn->addWidget(sub1);
-
-    QWidget *detW = new QWidget();
-    QFormLayout *f = new QFormLayout(detW);
-    f->setContentsMargins(0, 5, 0, 30);
-    f->setVerticalSpacing(15);
-
-    QString vs = "color: white; font-size: 15px;";
-    lblNameVal    = new QLabel("N/A"); lblNameVal->setStyleSheet(vs);
-    lblEmailVal   = new QLabel("N/A"); lblEmailVal->setStyleSheet(vs);
-    lblPhoneVal   = new QLabel("N/A"); lblPhoneVal->setStyleSheet(vs);
-    lblDobVal     = new QLabel("N/A"); lblDobVal->setStyleSheet(vs);
-    lblCountryVal = new QLabel("N/A"); lblCountryVal->setStyleSheet(vs);
-    lblGenderVal  = new QLabel("N/A"); lblGenderVal->setStyleSheet(vs);
-    lblAddressVal = new QLabel("N/A"); lblAddressVal->setStyleSheet(vs);
-    lblBalanceVal = new QLabel("0.00 €");
-    lblBalanceVal->setStyleSheet("color: #22c55e; font-size: 16px; font-weight: bold;");
-
-    QString ls = "font-weight: bold; color: #94a3b8; font-size: 14px;";
-    auto addRow = [&](const QString &lbl, QLabel *val) {
-        QLabel *l = new QLabel(lbl); l->setStyleSheet(ls);
-        f->addRow(l, val);
-    };
-    addRow("Name:",            lblNameVal);
-    addRow("Email:",           lblEmailVal);
-    addRow("Phone:",           lblPhoneVal);
-    addRow("Birth Date:",      lblDobVal);
-    addRow("Country:",         lblCountryVal);
-    addRow("Gender:",          lblGenderVal);
-    addRow("Address:",         lblAddressVal);
-    addRow("Current Balance:", lblBalanceVal);
-    leftColumn->addWidget(detW);
-
-    // Right column: booking history
-    QVBoxLayout *rightColumn = new QVBoxLayout();
-    rightColumn->setAlignment(Qt::AlignTop);
-
-    QLabel *sub2 = new QLabel("Your Booking History");
-    sub2->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6;");
-    rightColumn->addWidget(sub2);
-    rightColumn->addSpacing(5);
-
-    QScrollArea *hsa = new QScrollArea();
-    hsa->setWidgetResizable(true);
-    hsa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-
-    QWidget *hc = new QWidget();
-    historyLayout = new QVBoxLayout(hc);
-    historyLayout->setAlignment(Qt::AlignTop);
-    updateBookingHistoryUi();
-    hsa->setWidget(hc);
-    rightColumn->addWidget(hsa);
-
-    splitLayout->addLayout(leftColumn, 1);
-    splitLayout->addLayout(rightColumn, 1);
-    ml->addLayout(splitLayout);
-    return w;
-}
-
-QWidget *MainWindow::createDetailsWidget()
-{
-    QWidget *w = new QWidget();
-    QVBoxLayout *ml = new QVBoxLayout(w);
-    ml->setContentsMargins(30, 30, 30, 30);
-
-    QHBoxLayout *h = new QHBoxLayout();
-    QPushButton *bb = new QPushButton("← Back");
-    bb->setStyleSheet(secondaryBtnStyle);
-    connect(bb, &QPushButton::clicked, this, &MainWindow::backToMainApp);
-
-    detName = new QLabel("Hotel Details");
-    detName->setStyleSheet("font-size: 24px; font-weight: bold; color: white;");
-    h->addWidget(bb);
-    h->addSpacing(20);
-    h->addWidget(detName);
-    h->addStretch();
-    ml->addLayout(h);
-
-    detAddress = new QLabel("");
-    detAddress->setStyleSheet("color: #94a3b8; font-size: 14px; margin-left: 85px;");
-    ml->addWidget(detAddress);
-
-    detPromo = new QLabel("");
-    ml->addWidget(detPromo);
-
-    // Facility filters
-    QHBoxLayout *filtersLayout = new QHBoxLayout();
-    QLabel *filterLbl = new QLabel("Facilities:");
-    filterLbl->setStyleSheet("color: #94a3b8; font-weight: bold; font-size: 14px;");
-    filtersLayout->addWidget(filterLbl);
-
-    cbBalcony = new QCheckBox("Balcony"); cbBalcony->setStyleSheet(checkBoxStyle);
-    cbFridge  = new QCheckBox("Fridge");  cbFridge->setStyleSheet(checkBoxStyle);
-    cbAC      = new QCheckBox("AC");      cbAC->setStyleSheet(checkBoxStyle);
-    cbTV      = new QCheckBox("TV");      cbTV->setStyleSheet(checkBoxStyle);
-    cbWifi    = new QCheckBox("WiFi");    cbWifi->setStyleSheet(checkBoxStyle);
-    cbSofa    = new QCheckBox("Sofa");    cbSofa->setStyleSheet(checkBoxStyle);
-
-    filtersLayout->addWidget(cbBalcony);
-    filtersLayout->addWidget(cbFridge);
-    filtersLayout->addWidget(cbAC);
-    filtersLayout->addWidget(cbTV);
-    filtersLayout->addWidget(cbWifi);
-    filtersLayout->addWidget(cbSofa);
-    filtersLayout->addStretch();
-
-    ml->addSpacing(10);
-    ml->addLayout(filtersLayout);
-
-    // FIX: Use a consistent lambda that reads roomSearchBar->text() safely.
-    // Previously the lambda captured roomSearchBar before it was constructed,
-    // which could cause a null dereference on the first filter toggle.
-    auto updateRoomFilters = [this]() {
-        displayRooms(roomSearchBar ? roomSearchBar->text() : "");
-    };
-    connect(cbBalcony, &QCheckBox::checkStateChanged, this, updateRoomFilters);
-    connect(cbFridge,  &QCheckBox::checkStateChanged, this, updateRoomFilters);
-    connect(cbAC,      &QCheckBox::checkStateChanged, this, updateRoomFilters);
-    connect(cbTV,      &QCheckBox::checkStateChanged, this, updateRoomFilters);
-    connect(cbWifi,    &QCheckBox::checkStateChanged, this, updateRoomFilters);
-    connect(cbSofa,    &QCheckBox::checkStateChanged, this, updateRoomFilters);
-
-    roomSearchBar = new QLineEdit();
-    roomSearchBar->setPlaceholderText("Filter rooms by text...");
-    roomSearchBar->setStyleSheet(lineEditStyle);
-    connect(roomSearchBar, &QLineEdit::textChanged, this, &MainWindow::filterRooms);
-    ml->addSpacing(10);
-    ml->addWidget(roomSearchBar);
-    ml->addSpacing(20);
-
-    QLabel *roomT = new QLabel("Available Rooms");
-    roomT->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6;");
-    ml->addWidget(roomT);
-
-    QScrollArea *sa = new QScrollArea();
-    sa->setWidgetResizable(true);
-    sa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-    QWidget *rc = new QWidget();
-    roomsLayout = new QVBoxLayout(rc);
-    roomsLayout->setAlignment(Qt::AlignTop);
-    sa->setWidget(rc);
-    ml->addWidget(sa);
-    return w;
+    if (regNameInput)     regNameInput->clear();
+    if (regEmailInput)    regEmailInput->clear();
+    if (regPasswordInput) regPasswordInput->clear();
+    if (regPhoneInput)    regPhoneInput->clear();
+    if (regAddressInput)  regAddressInput->clear();
+    if (regDobInput)      regDobInput->setDate(QDate(2000, 1, 1));
+    if (regCountryInput)  regCountryInput->setCurrentIndex(0);
+    if (regGenderInput)   regGenderInput->setCurrentIndex(0);
 }
 
 // ---------------------------------------------------------------
@@ -498,14 +251,11 @@ void MainWindow::openAccommodationDetails(const Accommodation &acc)
     stackedWidget->setCurrentIndex(4);
 }
 
-void MainWindow::filterRooms(const QString &query)
-{
-    displayRooms(query);
-}
-
+// ---------------------------------------------------------------
+//  DISPLAY ROOMS
+// ---------------------------------------------------------------
 void MainWindow::displayRooms(const QString &f)
 {
-    // Clear existing room cards
     QLayoutItem *child;
     while ((child = roomsLayout->takeAt(0)) != nullptr) {
         if (child->widget()) delete child->widget();
@@ -559,7 +309,7 @@ void MainWindow::displayRooms(const QString &f)
 
         QString flist;
         for (const auto &fac : room.facilities) flist += fac.name + ", ";
-        if (flist.endsWith(", ")) flist.chop(2); // FIX: was .left(len-2) which breaks for empty list
+        if (flist.endsWith(", ")) flist.chop(2);
         QLabel *facL = new QLabel("Facilities: " + flist);
         facL->setStyleSheet("color: #64748b; font-size: 12px; border: none; background: transparent;");
 
@@ -567,9 +317,6 @@ void MainWindow::displayRooms(const QString &f)
         inf->addWidget(capL);
         inf->addWidget(facL);
 
-        // FIX: Price label was added to both inf layout and rightLayout, causing
-        // it to appear twice (or be reparented and disappear from inf). Now it
-        // lives only in rightLayout.
         double finalPrice = room.basePrice * (1.0 - currentAccommodationInDetails.discountPercent);
         QLabel *pL = new QLabel(QString::number(finalPrice, 'f', 2) + " € / night");
         pL->setStyleSheet("color: #22c55e; font-size: 18px; font-weight: bold; border: none; background: transparent;");
@@ -645,195 +392,10 @@ void MainWindow::populateAccommodations(const QString &f)
 }
 
 // ---------------------------------------------------------------
-//  NAVIGATION
-// ---------------------------------------------------------------
-void MainWindow::goToRegister()
-{
-    stackedWidget->setCurrentIndex(1);
-}
-
-void MainWindow::goToLogin()
-{
-    // FIX: Only send FORCE_LOGOUT when coming from authenticated pages (2 or 3).
-    // Also guard against empty email to avoid sending a junk packet when the
-    // user navigates back from the register page before ever logging in.
-    int idx = stackedWidget->currentIndex();
-    if ((idx == 2 || idx == 3) && !currentUser.email.isEmpty()) {
-        QJsonObject req;
-        req["type"]  = "FORCE_LOGOUT";
-        req["email"] = currentUser.email;
-        m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
-    }
-
-    // Reset current user state
-    currentUser = UserInfo();
-
-    clearRegisterFields();
-    if (loginEmailInput)    loginEmailInput->clear();
-    if (loginPasswordInput) loginPasswordInput->clear();
-    if (searchBarInput)     searchBarInput->clear();
-
-    allAccommodations.clear();
-    populateAccommodations("");
-
-    stackedWidget->setCurrentIndex(0);
-}
-
-void MainWindow::goToUserProfile()
-{
-    updateBookingHistoryUi();
-    stackedWidget->setCurrentIndex(3);
-}
-
-void MainWindow::backToMainApp()
-{
-    stackedWidget->setCurrentIndex(2);
-}
-
-void MainWindow::filterAccommodations(const QString &q)
-{
-    populateAccommodations(q);
-}
-
-void MainWindow::clearRegisterFields()
-{
-    if (regNameInput)     regNameInput->clear();
-    if (regEmailInput)    regEmailInput->clear();
-    if (regPasswordInput) regPasswordInput->clear();
-    if (regPhoneInput)    regPhoneInput->clear();
-    if (regAddressInput)  regAddressInput->clear();
-    if (regDobInput)      regDobInput->setDate(QDate(2000, 1, 1));
-    if (regCountryInput)  regCountryInput->setCurrentIndex(0);
-    if (regGenderInput)   regGenderInput->setCurrentIndex(0);
-}
-
-// ---------------------------------------------------------------
-//  BACKEND MESSAGE HANDLER
-// ---------------------------------------------------------------
-void MainWindow::handleBackendMessage(const QString &message)
-{
-    QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
-    if (doc.isNull()) return;
-
-    QJsonObject obj  = doc.object();
-    QString type     = obj["type"].toString();
-
-    // --- REGISTER ---
-    if (type == "REGISTER_RESPONSE") {
-        QString status    = obj["status"].toString();
-        QString serverMsg = obj["message"].toString();
-        if (status == "success") {
-            QMessageBox::information(this, "Success", serverMsg);
-            stackedWidget->setCurrentIndex(0);
-        } else {
-            QMessageBox::critical(this, "Registration Error", serverMsg);
-            // FIX: Stay on the register page so the user can fix the input.
-            // Previously goToLogin() was called in processRegister() before
-            // the response arrived, so this branch was unreachable.
-        }
-        return;
-    }
-
-    // --- LOGIN ---
-    if (type == "LOGIN_RESPONSE") {
-        QString status = obj["status"].toString();
-        if (status == "success") {
-            QJsonObject userData = obj["data"].toObject();
-
-            currentUser.name    = userData["name"].toString();
-            currentUser.email   = userData["email"].toString();
-            currentUser.phone   = userData["phone"].toString();
-            currentUser.address = userData["address"].toString();
-            currentUser.country = userData["country"].toString();
-            currentUser.dob     = userData["dob"].toString();
-            currentUser.gender  = userData["gender"].toString();
-            currentUser.balance = 99999.0; // TODO: replace with userData["balance"].toDouble()
-
-            lblNameVal->setText(currentUser.name);
-            lblEmailVal->setText(currentUser.email);
-            lblPhoneVal->setText(currentUser.phone);
-            lblDobVal->setText(currentUser.dob);
-            lblCountryVal->setText(currentUser.country);
-            lblGenderVal->setText(currentUser.gender);
-            lblAddressVal->setText(currentUser.address);
-            lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
-
-            // Request fresh accommodation data now that we are authenticated
-            QJsonObject req;
-            req["type"] = "GET_ACCOMMODATIONS";
-            m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
-
-            stackedWidget->setCurrentIndex(2);
-        } else {
-            QMessageBox::warning(this, "Login Error", obj["message"].toString());
-        }
-        return;
-    }
-
-    // --- ACCOMMODATIONS ---
-    if (type == "GET_ACCOMMODATIONS") {
-        QJsonArray dataArray = obj["data"].toArray();
-        allAccommodations.clear();
-
-        for (const QJsonValue &value : dataArray) {
-            QJsonObject accObj = value.toObject();
-
-            Accommodation acc;
-            acc.id              = accObj["id"].toInt();
-            acc.name            = accObj["name"].toString();
-            acc.location        = accObj["location"].toString();
-            acc.address         = accObj["address"].toString();
-            acc.discountPercent = accObj["discount"].toDouble(0.0);
-            acc.promoName       = accObj["promo_name"].toString();
-
-            if (accObj["rooms"].isArray()) {
-                for (const QJsonValue &rVal : accObj["rooms"].toArray()) {
-                    QJsonObject rObj = rVal.toObject();
-
-                    Room r;
-                    r.id        = rObj["id"].toInt();
-                    r.type      = rObj["type"].toString();
-                    r.basePrice = rObj["price"].toDouble();
-                    r.beds      = rObj["beds"].toInt();
-                    r.hasSofa   = rObj["hasSofa"].toBool(false);
-
-                    if (rObj["facilities"].isArray()) {
-                        for (const QJsonValue &fValue : rObj["facilities"].toArray()) {
-                            Facility fac;
-                            if (fValue.isString())       fac.name = fValue.toString();
-                            else if (fValue.isObject())  fac.name = fValue.toObject()["name"].toString();
-                            r.facilities.append(fac);
-                        }
-                    }
-                    acc.rooms.append(r);
-                }
-            }
-            allAccommodations.append(acc);
-        }
-
-        qDebug() << "Accommodations loaded:" << allAccommodations.size();
-        populateAccommodations(searchBarInput ? searchBarInput->text() : "");
-        return;
-    }
-
-    // --- FORCE LOGOUT (server-initiated) ---
-    // FIX: The original code compared the raw message string to "FORCE_LOGOUT"
-    // but the server sends a full JSON object {"type":"FORCE_LOGOUT",...}.
-    // Check the parsed "type" field instead.
-    if (type == "FORCE_LOGOUT") {
-        allAccommodations.clear();
-        currentUser = UserInfo();
-        goToLogin();
-        return;
-    }
-}
-
-// ---------------------------------------------------------------
 //  BOOKING
 // ---------------------------------------------------------------
 void MainWindow::bookRoom(int roomId)
 {
-    // Find the room in the current accommodation
     Room *selectedRoom = nullptr;
     for (auto &r : currentAccommodationInDetails.rooms) {
         if (r.id == roomId) { selectedRoom = &r; break; }
@@ -848,7 +410,7 @@ void MainWindow::bookRoom(int roomId)
     }
 
     QDialog *dialog = new QDialog(this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose); // FIX: prevent memory leak on dialog close
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowTitle("Book Room – " + selectedRoom->type);
     dialog->resize(470, 580);
     dialog->setStyleSheet("QDialog { background-color: #0f172a; }");
@@ -978,13 +540,13 @@ void MainWindow::bookRoom(int roomId)
             return;
         }
 
-        int    nights       = start.daysTo(end);
+        int    nights        = start.daysTo(end);
         double pricePerNight = selectedRoom->basePrice * (1.0 - currentAccommodationInDetails.discountPercent);
-        double totalCost    = pricePerNight * nights;
+        double totalCost     = pricePerNight * nights;
 
         if (currentUser.balance < totalCost) {
             QDialog *failDialog = new QDialog(dialog);
-            failDialog->setAttribute(Qt::WA_DeleteOnClose); // FIX: prevent leak
+            failDialog->setAttribute(Qt::WA_DeleteOnClose);
             failDialog->setWindowTitle("Insufficient Funds");
             failDialog->setFixedSize(380, 200);
             failDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #ef4444; border-radius: 8px; }");
@@ -1012,15 +574,13 @@ void MainWindow::bookRoom(int roomId)
             return;
         }
 
-        // Deduct balance
         currentUser.balance -= totalCost;
         if (lblBalanceVal)
             lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
 
-        // Mark nights as booked in both the local detail copy and the global list
-        for (QDate d = start; d < end; d = d.addDays(1)) {
+        for (QDate d = start; d < end; d = d.addDays(1))
             selectedRoom->bookedDates.append(d);
-        }
+
         for (auto &acc : allAccommodations) {
             for (auto &r : acc.rooms) {
                 if (r.id == roomId) {
@@ -1030,7 +590,6 @@ void MainWindow::bookRoom(int roomId)
             }
         }
 
-        // Record booking history
         BookingHistory newBooking;
         newBooking.hotelName  = currentAccommodationInDetails.name + " (" + selectedRoom->type + ")";
         newBooking.dateRange  = start.toString("MMM dd") + " – " + end.toString("MMM dd, yyyy");
@@ -1063,7 +622,6 @@ void MainWindow::updateBookingHistoryUi()
         delete child;
     }
 
-    // FIX: Show a placeholder when there are no bookings so the pane is not blank
     bool any = false;
     for (const auto &b : userBookings) {
         if (b.userEmail != currentUser.email) continue;
@@ -1106,50 +664,6 @@ void MainWindow::updateBookingHistoryUi()
 // ---------------------------------------------------------------
 //  ADMIN DASHBOARD
 // ---------------------------------------------------------------
-QWidget *MainWindow::createAdminDashboardWidget()
-{
-    QWidget *w = new QWidget();
-    QVBoxLayout *ml = new QVBoxLayout(w);
-    ml->setContentsMargins(40, 30, 40, 30);
-
-    QHBoxLayout *h = new QHBoxLayout();
-    QLabel *pt = new QLabel("🔑 Admin Control Panel");
-    pt->setStyleSheet("font-size: 24px; font-weight: bold; color: #ef4444;");
-
-    QPushButton *btnLogout = new QPushButton("Logout Admin");
-    btnLogout->setStyleSheet(dangerBtnStyle);
-    btnLogout->setCursor(Qt::PointingHandCursor);
-    // FIX: Admin logout goes straight to login without sending FORCE_LOGOUT
-    // (admin never authenticated against the C++ server).
-    connect(btnLogout, &QPushButton::clicked, this, [this]() {
-        if (loginEmailInput)    loginEmailInput->clear();
-        if (loginPasswordInput) loginPasswordInput->clear();
-        stackedWidget->setCurrentIndex(0);
-    });
-
-    h->addWidget(pt);
-    h->addStretch();
-    h->addWidget(btnLogout);
-    ml->addLayout(h);
-    ml->addSpacing(20);
-
-    QLabel *sub = new QLabel("Global Booking History (All Users)");
-    sub->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6; margin-bottom: 10px;");
-    ml->addWidget(sub);
-
-    QScrollArea *sa = new QScrollArea();
-    sa->setWidgetResizable(true);
-    sa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-
-    QWidget *container = new QWidget();
-    adminHistoryLayout = new QVBoxLayout(container);
-    adminHistoryLayout->setAlignment(Qt::AlignTop);
-
-    sa->setWidget(container);
-    ml->addWidget(sa);
-    return w;
-}
-
 void MainWindow::updateAdminDashboardUi()
 {
     if (!adminHistoryLayout) return;
@@ -1160,14 +674,12 @@ void MainWindow::updateAdminDashboardUi()
         delete child;
     }
 
-    // Fixed demo bookings
     struct GlobalBooking { QString user, hotel, dates, status; };
     const QList<GlobalBooking> databaseBookings = {
         {"George Popescu", "Transylvania Castle (Deluxe Suite)", "May 10 – May 14, 2026", "Finished"},
         {"Elena Ionescu",  "Retezat Cabin (Double Room)",        "Jun 01 – Jun 05, 2026", "Upcoming"}
     };
 
-    // Helper: render one admin booking card
     auto addCard = [this](const QString &user, const QString &hotel,
                           const QString &dates, const QString &status,
                           bool canCancel, int bookingIndex = -1)
@@ -1206,7 +718,7 @@ void MainWindow::updateAdminDashboardUi()
 
             connect(btnCancel, &QPushButton::clicked, this, [this, bookingIndex]() {
                 QDialog *confDialog = new QDialog(this);
-                confDialog->setAttribute(Qt::WA_DeleteOnClose); // FIX: prevent leak
+                confDialog->setAttribute(Qt::WA_DeleteOnClose);
                 confDialog->setWindowTitle("Confirm Action");
                 confDialog->setFixedSize(380, 180);
                 confDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #334155; border-radius: 8px; }");
@@ -1236,7 +748,6 @@ void MainWindow::updateAdminDashboardUi()
                 connect(btnNo,  &QPushButton::clicked, confDialog, &QDialog::reject);
 
                 if (confDialog->exec() == QDialog::Accepted) {
-                    // FIX: guard against stale index after list changes
                     if (bookingIndex >= 0 && bookingIndex < userBookings.size()) {
                         userBookings[bookingIndex].status = "Cancelled";
                         updateAdminDashboardUi();
@@ -1255,4 +766,119 @@ void MainWindow::updateAdminDashboardUi()
     for (int i = 0; i < userBookings.size(); ++i)
         addCard(userBookings[i].userName, userBookings[i].hotelName,
                 userBookings[i].dateRange, userBookings[i].status, true, i);
+}
+
+// ---------------------------------------------------------------
+//  BACKEND MESSAGE HANDLER
+// ---------------------------------------------------------------
+void MainWindow::handleBackendMessage(const QString &message)
+{
+    QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
+    if (doc.isNull()) return;
+
+    QJsonObject obj  = doc.object();
+    QString type     = obj["type"].toString();
+
+    // --- REGISTER ---
+    if (type == "REGISTER_RESPONSE") {
+        QString status    = obj["status"].toString();
+        QString serverMsg = obj["message"].toString();
+        if (status == "success") {
+            QMessageBox::information(this, "Success", serverMsg);
+            stackedWidget->setCurrentIndex(0);
+        } else {
+            QMessageBox::critical(this, "Registration Error", serverMsg);
+            // Stay on the register page so the user can fix the input.
+        }
+        return;
+    }
+
+    // --- LOGIN ---
+    if (type == "LOGIN_RESPONSE") {
+        QString status = obj["status"].toString();
+        if (status == "success") {
+            QJsonObject userData = obj["data"].toObject();
+
+            currentUser.name    = userData["name"].toString();
+            currentUser.email   = userData["email"].toString();
+            currentUser.phone   = userData["phone"].toString();
+            currentUser.address = userData["address"].toString();
+            currentUser.country = userData["country"].toString();
+            currentUser.dob     = userData["dob"].toString();
+            currentUser.gender  = userData["gender"].toString();
+            currentUser.balance = 99999.0; // TODO: replace with userData["balance"].toDouble()
+
+            lblNameVal->setText(currentUser.name);
+            lblEmailVal->setText(currentUser.email);
+            lblPhoneVal->setText(currentUser.phone);
+            lblDobVal->setText(currentUser.dob);
+            lblCountryVal->setText(currentUser.country);
+            lblGenderVal->setText(currentUser.gender);
+            lblAddressVal->setText(currentUser.address);
+            lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
+
+            QJsonObject req;
+            req["type"] = "GET_ACCOMMODATIONS";
+            m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+
+            stackedWidget->setCurrentIndex(2);
+        } else {
+            QMessageBox::warning(this, "Login Error", obj["message"].toString());
+        }
+        return;
+    }
+
+    // --- ACCOMMODATIONS ---
+    if (type == "GET_ACCOMMODATIONS") {
+        QJsonArray dataArray = obj["data"].toArray();
+        allAccommodations.clear();
+
+        for (const QJsonValue &value : dataArray) {
+            QJsonObject accObj = value.toObject();
+
+            Accommodation acc;
+            acc.id              = accObj["id"].toInt();
+            acc.name            = accObj["name"].toString();
+            acc.location        = accObj["location"].toString();
+            acc.address         = accObj["address"].toString();
+            acc.discountPercent = accObj["discount"].toDouble(0.0);
+            acc.promoName       = accObj["promo_name"].toString();
+
+            if (accObj["rooms"].isArray()) {
+                for (const QJsonValue &rVal : accObj["rooms"].toArray()) {
+                    QJsonObject rObj = rVal.toObject();
+
+                    Room r;
+                    r.id        = rObj["id"].toInt();
+                    r.type      = rObj["type"].toString();
+                    r.basePrice = rObj["price"].toDouble();
+                    r.beds      = rObj["beds"].toInt();
+                    r.hasSofa   = rObj["hasSofa"].toBool(false);
+
+                    if (rObj["facilities"].isArray()) {
+                        for (const QJsonValue &fValue : rObj["facilities"].toArray()) {
+                            Facility fac;
+                            if (fValue.isString())       fac.name = fValue.toString();
+                            else if (fValue.isObject())  fac.name = fValue.toObject()["name"].toString();
+                            r.facilities.append(fac);
+                        }
+                    }
+                    acc.rooms.append(r);
+                }
+            }
+            allAccommodations.append(acc);
+        }
+
+        qDebug() << "Accommodations loaded:" << allAccommodations.size();
+        populateAccommodations(searchBarInput ? searchBarInput->text() : "");
+        return;
+    }
+
+    // --- FORCE LOGOUT (server-initiated) ---
+    if (type == "FORCE_LOGOUT") {
+        allAccommodations.clear();
+        currentUser = UserInfo();
+        goToLogin();
+        return;
+    }
 }

@@ -1,0 +1,105 @@
+#include "DetailsPage.h"
+#include "MainWindow.h"
+#include "Styles.h"
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QScrollArea>
+#include <QVBoxLayout>
+
+QWidget *DetailsPage::createWidget(MainWindow *mw,
+                                   QLabel *&detName,
+                                   QLabel *&detAddress,
+                                   QLabel *&detPromo,
+                                   QLineEdit *&roomSearchBar,
+                                   QVBoxLayout *&roomsLayout,
+                                   QCheckBox *&cbBalcony,
+                                   QCheckBox *&cbFridge,
+                                   QCheckBox *&cbAC,
+                                   QCheckBox *&cbTV,
+                                   QCheckBox *&cbWifi,
+                                   QCheckBox *&cbSofa)
+{
+    QWidget *w = new QWidget();
+    QVBoxLayout *ml = new QVBoxLayout(w);
+    ml->setContentsMargins(30, 30, 30, 30);
+
+    QHBoxLayout *h = new QHBoxLayout();
+    QPushButton *bb = new QPushButton("← Back");
+    bb->setStyleSheet(secondaryBtnStyle);
+    QObject::connect(bb, &QPushButton::clicked, mw, &MainWindow::backToMainApp);
+
+    detName = new QLabel("Hotel Details");
+    detName->setStyleSheet("font-size: 24px; font-weight: bold; color: white;");
+    h->addWidget(bb);
+    h->addSpacing(20);
+    h->addWidget(detName);
+    h->addStretch();
+    ml->addLayout(h);
+
+    detAddress = new QLabel("");
+    detAddress->setStyleSheet("color: #94a3b8; font-size: 14px; margin-left: 85px;");
+    ml->addWidget(detAddress);
+
+    detPromo = new QLabel("");
+    ml->addWidget(detPromo);
+
+    // Facility filters
+    QHBoxLayout *filtersLayout = new QHBoxLayout();
+    QLabel *filterLbl = new QLabel("Facilities:");
+    filterLbl->setStyleSheet("color: #94a3b8; font-weight: bold; font-size: 14px;");
+    filtersLayout->addWidget(filterLbl);
+
+    cbBalcony = new QCheckBox("Balcony"); cbBalcony->setStyleSheet(checkBoxStyle);
+    cbFridge  = new QCheckBox("Fridge");  cbFridge->setStyleSheet(checkBoxStyle);
+    cbAC      = new QCheckBox("AC");      cbAC->setStyleSheet(checkBoxStyle);
+    cbTV      = new QCheckBox("TV");      cbTV->setStyleSheet(checkBoxStyle);
+    cbWifi    = new QCheckBox("WiFi");    cbWifi->setStyleSheet(checkBoxStyle);
+    cbSofa    = new QCheckBox("Sofa");    cbSofa->setStyleSheet(checkBoxStyle);
+
+    filtersLayout->addWidget(cbBalcony);
+    filtersLayout->addWidget(cbFridge);
+    filtersLayout->addWidget(cbAC);
+    filtersLayout->addWidget(cbTV);
+    filtersLayout->addWidget(cbWifi);
+    filtersLayout->addWidget(cbSofa);
+    filtersLayout->addStretch();
+
+    ml->addSpacing(10);
+    ml->addLayout(filtersLayout);
+
+    // FIX: Use a consistent lambda that reads roomSearchBar->text() safely.
+    // Previously the lambda captured roomSearchBar before it was constructed,
+    // which could cause a null dereference on the first filter toggle.
+    auto updateRoomFilters = [mw, &roomSearchBar]() {
+        mw->filterRooms(roomSearchBar ? roomSearchBar->text() : "");
+    };
+    QObject::connect(cbBalcony, &QCheckBox::checkStateChanged, mw, updateRoomFilters);
+    QObject::connect(cbFridge,  &QCheckBox::checkStateChanged, mw, updateRoomFilters);
+    QObject::connect(cbAC,      &QCheckBox::checkStateChanged, mw, updateRoomFilters);
+    QObject::connect(cbTV,      &QCheckBox::checkStateChanged, mw, updateRoomFilters);
+    QObject::connect(cbWifi,    &QCheckBox::checkStateChanged, mw, updateRoomFilters);
+    QObject::connect(cbSofa,    &QCheckBox::checkStateChanged, mw, updateRoomFilters);
+
+    roomSearchBar = new QLineEdit();
+    roomSearchBar->setPlaceholderText("Filter rooms by text...");
+    roomSearchBar->setStyleSheet(lineEditStyle);
+    QObject::connect(roomSearchBar, &QLineEdit::textChanged, mw, &MainWindow::filterRooms);
+    ml->addSpacing(10);
+    ml->addWidget(roomSearchBar);
+    ml->addSpacing(20);
+
+    QLabel *roomT = new QLabel("Available Rooms");
+    roomT->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6;");
+    ml->addWidget(roomT);
+
+    QScrollArea *sa = new QScrollArea();
+    sa->setWidgetResizable(true);
+    sa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
+    QWidget *rc = new QWidget();
+    roomsLayout = new QVBoxLayout(rc);
+    roomsLayout->setAlignment(Qt::AlignTop);
+    sa->setWidget(rc);
+    ml->addWidget(sa);
+    return w;
+}

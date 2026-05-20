@@ -4,62 +4,15 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateEdit>
-#include <QJsonArray>
 #include <QLabel>
 #include <QLineEdit>
-#include <QList>
 #include <QMainWindow>
-#include <QMap>
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QVBoxLayout>
+
+#include "AppData.h"
 #include "socketclient.h"
-
-struct Facility
-{
-    QString name;
-};
-
-struct Room
-{
-    int id;
-    QString type; // single room, double room, triple room
-    int beds;
-    QList<Facility> facilities;
-    double basePrice;
-    bool hasSofa;           // increases capacity by 1
-    QList<QDate> bookedDates;
-};
-
-struct Accommodation
-{
-    int id;
-    QString name;
-    QString location;
-    QString address;
-    double discountPercent;
-    QString promoName;
-    int capacity;
-    QList<Room> rooms;
-};
-
-struct BookingHistory
-{
-    QString hotelName;
-    QString dateRange;
-    QString status;
-    QString userName;
-    QString userEmail;
-};
-
-// FIX: Renamed from User to UserInfo to match the .cpp usage.
-// Added default initialisation for balance so that resetting via
-// currentUser = UserInfo() always produces a clean zero state.
-struct UserInfo
-{
-    QString name, email, password, phone, dob, country, gender, address;
-    double balance = 10000.0;
-};
 
 class MainWindow : public QMainWindow
 {
@@ -69,37 +22,40 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-private slots:
+public slots:
+    // Navigation
     void goToRegister();
     void goToLogin();
-    void processLogin();
-    void processRegister();
     void goToUserProfile();
     void backToMainApp();
+    void adminLogout();
+
+    // Auth
+    void processLogin();
+    void processRegister();
+
+    // Search / filter
     void filterAccommodations(const QString &query);
     void filterRooms(const QString &query);
+
+    // Accommodation details & booking
     void openAccommodationDetails(const Accommodation &acc);
     void bookRoom(int roomId);
-    // FIX: moved here from private — must be a slot because it is
-    // connected via connect() in the constructor.
+
+    // Backend
     void handleBackendMessage(const QString &message);
 
 private:
     void setupUi();
-    QWidget *createLoginWidget();
-    QWidget *createRegisterWidget();
-    QWidget *createMainAppWidget();
-    QWidget *createUserProfileWidget();
-    QWidget *createDetailsWidget();
-    QWidget *createAdminDashboardWidget();
-    void updateAdminDashboardUi();
-    void updateBookingHistoryUi();
+
+    // UI update helpers
     void populateAccommodations(const QString &f = "");
     void displayRooms(const QString &filter = "");
     void clearRegisterFields();
+    void updateBookingHistoryUi();
+    void updateAdminDashboardUi();
 
-    QString ip = "127.0.0.1";
-
+    QString ip = "10.10.25.219";
     SocketClient *m_socketClient;
 
     // Stacked pages
@@ -115,10 +71,8 @@ private:
     QComboBox *regCountryInput, *regGenderInput;
 
     // Main app page
-    QLineEdit *searchBarInput;
-    QWidget   *accommodationsContainer;
-    // FIX: removed the unused/duplicate QJsonArray *allAccomodations pointer.
-    // The authoritative list is QList<Accommodation> allAccommodations below.
+    QLineEdit   *searchBarInput;
+    QWidget     *accommodationsContainer;
     QVBoxLayout *accommodationsLayout;
 
     // Profile page
@@ -137,7 +91,6 @@ private:
     QVBoxLayout *adminHistoryLayout = nullptr;
 
     // Session state
-    // FIX: type changed from User to UserInfo
     UserInfo currentUser;
     QList<Accommodation> allAccommodations;
     QList<BookingHistory> userBookings;

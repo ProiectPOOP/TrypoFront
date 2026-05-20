@@ -6,10 +6,10 @@ SocketClient::SocketClient(QObject *parent)
     : QObject(parent)
 {
     m_socket = new QTcpSocket(this);
-    connect(m_socket, &QTcpSocket::connected,      this, &SocketClient::onConnected);
-    connect(m_socket, &QTcpSocket::disconnected,   this, &SocketClient::onDisconnected);
-    connect(m_socket, &QTcpSocket::readyRead,      this, &SocketClient::onReadyRead);
-    connect(m_socket, &QTcpSocket::errorOccurred,  this, &SocketClient::onErrorOccurred);
+    connect(m_socket, &QTcpSocket::connected, this, &SocketClient::onConnected);
+    connect(m_socket, &QTcpSocket::disconnected, this, &SocketClient::onDisconnected);
+    connect(m_socket, &QTcpSocket::readyRead, this, &SocketClient::onReadyRead);
+    connect(m_socket, &QTcpSocket::errorOccurred, this, &SocketClient::onErrorOccurred);
 }
 
 void SocketClient::connectToBackend(const QString &host, quint16 port)

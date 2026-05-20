@@ -13,19 +13,24 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
 
 # 2. Adăugăm fișierele sursă (Asigură-te că socketclient.cpp/h sunt aici dacă le-ai creat)
 set(PROJECT_SOURCES
-        main.cpp
-        MainWindow.cpp
-        MainWindow.h
-        Styles.h
-        socketclient.cpp
+
+
+
+
+
         socketclient.h
 )
 
 # 3. Definim executabilul
 qt_add_executable(Trypo_frontend MANUAL_FINALIZATION ${PROJECT_SOURCES}
-    socketclient.h
-    socketclient.h socketclient.cpp
-    Styles.h)
+    AdminDashboardPage.cpp AdminDashboardPage.h AppData.h CMakeLists.txt DetailsPage.cpp DetailsPage.h json.hpp LoginPage.cpp LoginPage.h main.cpp Main.qml MainAppPage.cpp MainAppPage.h MainWindow.cpp MainWindow.h RegisterPage.cpp RegisterPage.h socketclient.cpp socketclient.h Styles.h UserProfilePage.cpp UserProfilePage.h
+
+
+
+
+
+
+)
 
 # 4. Legăm toate librăriile de proiectul nostru
 # AICI era eroarea: "mytarget" trebuie să fie numele proiectului tău
