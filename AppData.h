@@ -35,7 +35,9 @@ struct Accommodation
 
 struct BookingHistory
 {
+    int bookingId;
     QString hotelName;
+    QString roomType;
     QString dateRange;
     QString status;
     QString userName;
@@ -45,7 +47,8 @@ struct BookingHistory
 struct UserInfo
 {
     QString name, email, password, phone, dob, country, gender, address;
-    double balance = 10000.0;
+    double balance;
 };
 
+inline int IdUser=0;
 #endif // APPDATA_H

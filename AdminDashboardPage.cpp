@@ -7,7 +7,7 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 
-QWidget *AdminDashboardPage::createWidget(MainWindow *mw, QVBoxLayout *&adminHistoryLayout)
+QWidget *AdminDashboardPage::createWidget(MainWindow *mw, QVBoxLayout *&adminHistoryLayout, QLabel *&adminLocationLabel)
 {
     QWidget *w = new QWidget();
     QVBoxLayout *ml = new QVBoxLayout(w);
@@ -20,17 +20,22 @@ QWidget *AdminDashboardPage::createWidget(MainWindow *mw, QVBoxLayout *&adminHis
     QPushButton *btnLogout = new QPushButton("Logout Admin");
     btnLogout->setStyleSheet(dangerBtnStyle);
     btnLogout->setCursor(Qt::PointingHandCursor);
-    // Admin logout goes straight to login without sending FORCE_LOGOUT
-    // (admin never authenticated against the C++ server).
     QObject::connect(btnLogout, &QPushButton::clicked, mw, &MainWindow::adminLogout);
 
     h->addWidget(pt);
     h->addStretch();
     h->addWidget(btnLogout);
     ml->addLayout(h);
+
+    // --- BUCATA NOUĂ: Inițializăm label-ul pe care îl vom modifica din MainWindow ---
+    adminLocationLabel = new QLabel("Loading location...", w);
+    adminLocationLabel->setStyleSheet("font-size: 15px; color: #64748b; font-style: italic; margin-top: -5px;");
+    ml->addWidget(adminLocationLabel);
+    // -------------------------------------------------------------------------------
+
     ml->addSpacing(20);
 
-    QLabel *sub = new QLabel("Global Booking History (All Users)");
+    QLabel *sub = new QLabel("Booking History");
     sub->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6; margin-bottom: 10px;");
     ml->addWidget(sub);
 

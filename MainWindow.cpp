@@ -53,7 +53,7 @@ void MainWindow::setupUi()
     stackedWidget->addWidget(MainAppPage::createWidget(this, searchBarInput, accommodationsContainer, accommodationsLayout));                                                         // 2
     stackedWidget->addWidget(UserProfilePage::createWidget(this, lblNameVal, lblEmailVal, lblPhoneVal, lblDobVal, lblCountryVal, lblGenderVal, lblAddressVal, lblBalanceVal, historyLayout)); // 3
     stackedWidget->addWidget(DetailsPage::createWidget(this, detName, detAddress, detPromo, roomSearchBar, roomsLayout, cbBalcony, cbFridge, cbAC, cbTV, cbWifi, cbSofa));           // 4
-    stackedWidget->addWidget(AdminDashboardPage::createWidget(this, adminHistoryLayout));                                                                                             // 5
+    stackedWidget->addWidget(AdminDashboardPage::createWidget(this, adminHistoryLayout, lblAdminLocation));                                                                                        // 5
     setCentralWidget(stackedWidget);
 }
 
@@ -78,8 +78,6 @@ void MainWindow::goToRegister()
 void MainWindow::goToLogin()
 {
     // Only send FORCE_LOGOUT when coming from authenticated pages (2 or 3).
-    // Also guard against empty email to avoid sending a junk packet when the
-    // user navigates back from the register page before ever logging in.
     int idx = stackedWidget->currentIndex();
     if ((idx == 2 || idx == 3) && !currentUser.email.isEmpty()) {
         QJsonObject req;
@@ -103,7 +101,10 @@ void MainWindow::goToLogin()
 
 void MainWindow::goToUserProfile()
 {
-    updateBookingHistoryUi();
+    QJsonObject req;
+    req["type"]  = "GET_CLIENT_BOOKINGS";
+    req["id"] = IdUser;
+    m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
     stackedWidget->setCurrentIndex(3);
 }
 
@@ -116,6 +117,10 @@ void MainWindow::adminLogout()
 {
     if (loginEmailInput)    loginEmailInput->clear();
     if (loginPasswordInput) loginPasswordInput->clear();
+    QJsonObject req;
+    req["type"]  = "FORCE_LOGOUT";
+    req["email"] = currentUser.email;
+    m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
     stackedWidget->setCurrentIndex(0);
 }
 
@@ -161,11 +166,6 @@ void MainWindow::processRegister()
 
     m_socketClient->sendMessage(QJsonDocument(userObj).toJson(QJsonDocument::Compact));
     qDebug() << "Register request sent for:" << em;
-
-    // Do NOT call goToLogin() here.
-    // We wait for the REGISTER_RESPONSE from the server before switching pages.
-    // Previously the page switched immediately, so error messages were never shown
-    // to the user because the login page had already been rendered.
 }
 
 // ---------------------------------------------------------------
@@ -176,13 +176,6 @@ void MainWindow::processLogin()
     QString em = loginEmailInput->text().trimmed();
     QString ps = loginPasswordInput->text();
 
-    // Hard-coded admin shortcut (no server round-trip)
-    if (em == "admin@trypo.com" && ps == "Admin123!") {
-        qDebug() << "Admin logged in.";
-        updateAdminDashboardUi();
-        stackedWidget->setCurrentIndex(5);
-        return;
-    }
 
     QJsonObject userObj;
     userObj["type"]     = "LOGIN_USER";
@@ -246,7 +239,10 @@ void MainWindow::openAccommodationDetails(const Accommodation &acc)
     } else {
         detPromo->hide();
     }
-
+    QJsonObject req;
+    req["type"] = "GET_LOCATION_BOOKINGS";
+    req["location_id"] = acc.id;
+    m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
     displayRooms("");
     stackedWidget->setCurrentIndex(4);
 }
@@ -401,13 +397,6 @@ void MainWindow::bookRoom(int roomId)
         if (r.id == roomId) { selectedRoom = &r; break; }
     }
     if (!selectedRoom) return;
-
-    // Demo booked dates
-    if (selectedRoom->bookedDates.isEmpty()) {
-        QDate target = QDate::currentDate();
-        selectedRoom->bookedDates.append(QDate(target.year(), target.month(), 28));
-        selectedRoom->bookedDates.append(QDate(target.year(), target.month(), 29));
-    }
 
     QDialog *dialog = new QDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -574,36 +563,19 @@ void MainWindow::bookRoom(int roomId)
             return;
         }
 
-        currentUser.balance -= totalCost;
-        if (lblBalanceVal)
-            lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
+        // --- PACHETUL JSON TRIMIS CĂTRE SERVERUL C++ ---
+        QJsonObject req;
+        req["type"] = "CREATE_RESERVATION";
+        req["client_id"] = IdUser;
+        req["room_id"] = selectedRoom->id;
+        req["check_in"] = start.toString("yyyy-MM-dd");
+        req["check_out"] = end.toString("yyyy-MM-dd");
+        req["total_cost"] = totalCost;
 
-        for (QDate d = start; d < end; d = d.addDays(1))
-            selectedRoom->bookedDates.append(d);
+        m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
 
-        for (auto &acc : allAccommodations) {
-            for (auto &r : acc.rooms) {
-                if (r.id == roomId) {
-                    for (QDate d = start; d < end; d = d.addDays(1))
-                        r.bookedDates.append(d);
-                }
-            }
-        }
-
-        BookingHistory newBooking;
-        newBooking.hotelName  = currentAccommodationInDetails.name + " (" + selectedRoom->type + ")";
-        newBooking.dateRange  = start.toString("MMM dd") + " – " + end.toString("MMM dd, yyyy");
-        newBooking.status     = "Upcoming";
-        newBooking.userName   = currentUser.name.isEmpty() ? "Guest" : currentUser.name;
-        newBooking.userEmail  = currentUser.email;
-        userBookings.append(newBooking);
-
-        QMessageBox::information(dialog, "Success",
-                                 QString("Reservation confirmed! Deducted %1 € from your balance.")
-                                     .arg(QString::number(totalCost, 'f', 2)));
-
+        // Închidem fereastra popup; succesul va fi afișat în handleBackendMessage
         dialog->accept();
-        displayRooms(roomSearchBar ? roomSearchBar->text() : "");
     });
 
     dialog->exec();
@@ -614,56 +586,61 @@ void MainWindow::bookRoom(int roomId)
 // ---------------------------------------------------------------
 void MainWindow::updateBookingHistoryUi()
 {
-    if (!historyLayout) return;
+        if (!historyLayout) return;
 
-    QLayoutItem *child;
-    while ((child = historyLayout->takeAt(0)) != nullptr) {
-        if (child->widget()) delete child->widget();
-        delete child;
-    }
+        QLayoutItem *child;
+        while ((child = historyLayout->takeAt(0)) != nullptr) {
+            if (child->widget()) delete child->widget();
+            delete child;
+        }
 
-    bool any = false;
-    for (const auto &b : userBookings) {
-        if (b.userEmail != currentUser.email) continue;
-        any = true;
+        bool any = false;
+        for (const auto &b : userBookings) {
+            if (b.userEmail != currentUser.email) continue;
+            any = true;
 
-        QFrame *fr = new QFrame();
-        fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 8px; border: 1px solid #334155; padding: 5px; }");
-        QHBoxLayout *cl = new QHBoxLayout(fr);
-        QVBoxLayout *inf = new QVBoxLayout();
+            QFrame *fr = new QFrame();
+            fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 8px; border: 1px solid #334155; padding: 5px; }");
+            QHBoxLayout *cl = new QHBoxLayout(fr);
+            QVBoxLayout *inf = new QVBoxLayout();
 
-        QLabel *hN = new QLabel(b.hotelName);
-        hN->setStyleSheet("font-weight: bold; color: white; border: none; background: transparent;");
-        QLabel *hD = new QLabel(b.dateRange);
-        hD->setStyleSheet("color: #94a3b8; font-size: 12px; border: none; background: transparent;");
-        inf->addWidget(hN);
-        inf->addWidget(hD);
+            // Am modificat aici: concatenăm numele hotelului cu tipul/denumirea camerei
+            QString titluAfisat = b.hotelName;
+            if (!b.roomType.isEmpty()) {
+                titluAfisat += " — " + b.roomType;
+            }
 
-        QLabel *st = new QLabel(b.status);
-        if (b.status == "Finished")
-            st->setStyleSheet("color:#22c55e; border: none; background: transparent; font-weight: bold;");
-        else if (b.status == "Cancelled")
-            st->setStyleSheet("color:#ef4444; border: none; background: transparent; font-weight: bold;");
-        else
-            st->setStyleSheet("color:#3b82f6; border: none; background: transparent; font-weight: bold;");
+            QLabel *hN = new QLabel(titluAfisat);
+            hN->setStyleSheet("font-weight: bold; color: white; border: none; background: transparent;");
 
-        cl->addLayout(inf);
-        cl->addStretch();
-        cl->addWidget(st);
-        historyLayout->addWidget(fr);
-    }
+            QLabel *hD = new QLabel(b.dateRange);
+            hD->setStyleSheet("color: #94a3b8; font-size: 12px; border: none; background: transparent;");
 
-    if (!any) {
-        QLabel *empty = new QLabel("No bookings yet.");
-        empty->setStyleSheet("color: #475569; font-size: 14px;");
-        empty->setAlignment(Qt::AlignCenter);
-        historyLayout->addWidget(empty);
-    }
+            inf->addWidget(hN);
+            inf->addWidget(hD);
+
+            QLabel *st = new QLabel(b.status);
+            if (b.status == "finished")
+                st->setStyleSheet("color:#22c55e; border: none; background: transparent; font-weight: bold;");
+            else if (b.status == "cancelled")
+                st->setStyleSheet("color:#ef4444; border: none; background: transparent; font-weight: bold;");
+            else
+                st->setStyleSheet("color:#3b82f6; border: none; background: transparent; font-weight: bold;");
+
+            cl->addLayout(inf);
+            cl->addStretch();
+            cl->addWidget(st);
+            historyLayout->addWidget(fr);
+        }
+
+        if (!any) {
+            QLabel *empty = new QLabel("No bookings yet.");
+            empty->setStyleSheet("color: #475569; font-size: 14px;");
+            empty->setAlignment(Qt::AlignCenter);
+            historyLayout->addWidget(empty);
+        }
 }
 
-// ---------------------------------------------------------------
-//  ADMIN DASHBOARD
-// ---------------------------------------------------------------
 void MainWindow::updateAdminDashboardUi()
 {
     if (!adminHistoryLayout) return;
@@ -675,10 +652,6 @@ void MainWindow::updateAdminDashboardUi()
     }
 
     struct GlobalBooking { QString user, hotel, dates, status; };
-    const QList<GlobalBooking> databaseBookings = {
-        {"George Popescu", "Transylvania Castle (Deluxe Suite)", "May 10 – May 14, 2026", "Finished"},
-        {"Elena Ionescu",  "Retezat Cabin (Double Room)",        "Jun 01 – Jun 05, 2026", "Upcoming"}
-    };
 
     auto addCard = [this](const QString &user, const QString &hotel,
                           const QString &dates, const QString &status,
@@ -703,15 +676,15 @@ void MainWindow::updateAdminDashboardUi()
         cl->addStretch();
 
         QLabel *st = new QLabel(status);
-        if (status == "Finished")
+        if (status == "finished")
             st->setStyleSheet("color:#22c55e; font-weight: bold; border: none; background: transparent; margin-right: 15px;");
-        else if (status == "Cancelled")
+        else if (status == "cancelled")
             st->setStyleSheet("color:#ef4444; font-weight: bold; border: none; background: transparent; margin-right: 15px;");
         else
             st->setStyleSheet("color:#3b82f6; font-weight: bold; border: none; background: transparent; margin-right: 15px;");
         cl->addWidget(st);
 
-        if (canCancel && status != "Cancelled" && status != "Finished") {
+        if (canCancel && status != "cancelled" && status != "finished") {
             QPushButton *btnCancel = new QPushButton("Cancel Reservation");
             btnCancel->setStyleSheet(dangerBtnStyle + " padding: 5px 10px; font-size: 12px;");
             btnCancel->setCursor(Qt::PointingHandCursor);
@@ -749,8 +722,10 @@ void MainWindow::updateAdminDashboardUi()
 
                 if (confDialog->exec() == QDialog::Accepted) {
                     if (bookingIndex >= 0 && bookingIndex < userBookings.size()) {
-                        userBookings[bookingIndex].status = "Cancelled";
-                        updateAdminDashboardUi();
+                        QJsonObject userObj;
+                        userObj["type"]     = "ADMIN_CANCEL_BOOKING";
+                        userObj["id"]   = userBookings[bookingIndex].bookingId;
+                        m_socketClient->sendMessage(QJsonDocument(userObj).toJson(QJsonDocument::Compact));
                     }
                 }
             });
@@ -760,12 +735,14 @@ void MainWindow::updateAdminDashboardUi()
         adminHistoryLayout->addWidget(fr);
     };
 
-    for (const auto &b : databaseBookings)
-        addCard(b.user, b.hotel, b.dates, b.status, false);
-
-    for (int i = 0; i < userBookings.size(); ++i)
-        addCard(userBookings[i].userName, userBookings[i].hotelName,
-                userBookings[i].dateRange, userBookings[i].status, true, i);
+    for (int i = 0; i < userBookings.size(); ++i) {
+        addCard(userBookings[i].userName,
+                userBookings[i].hotelName,
+                userBookings[i].dateRange,
+                userBookings[i].status,
+                true,
+                i);
+    }
 }
 
 // ---------------------------------------------------------------
@@ -798,30 +775,49 @@ void MainWindow::handleBackendMessage(const QString &message)
         QString status = obj["status"].toString();
         if (status == "success") {
             QJsonObject userData = obj["data"].toObject();
+            if(userData["role"]==0){
+                IdUser=userData["id"].toInt();
+                currentUser.name    = userData["name"].toString();
+                currentUser.email   = userData["email"].toString();
+                currentUser.phone   = userData["phone"].toString();
+                currentUser.address = userData["address"].toString();
+                currentUser.country = userData["country"].toString();
+                currentUser.dob     = userData["dob"].toString();
+                currentUser.gender  = userData["gender"].toString();
+                currentUser.balance = userData["balance"].toDouble();
 
-            currentUser.name    = userData["name"].toString();
-            currentUser.email   = userData["email"].toString();
-            currentUser.phone   = userData["phone"].toString();
-            currentUser.address = userData["address"].toString();
-            currentUser.country = userData["country"].toString();
-            currentUser.dob     = userData["dob"].toString();
-            currentUser.gender  = userData["gender"].toString();
-            currentUser.balance = 99999.0; // TODO: replace with userData["balance"].toDouble()
+                lblNameVal->setText(currentUser.name);
+                lblEmailVal->setText(currentUser.email);
+                lblPhoneVal->setText(currentUser.phone);
+                lblDobVal->setText(currentUser.dob);
+                lblCountryVal->setText(currentUser.country);
+                lblGenderVal->setText(currentUser.gender);
+                lblAddressVal->setText(currentUser.address);
+                lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
 
-            lblNameVal->setText(currentUser.name);
-            lblEmailVal->setText(currentUser.email);
-            lblPhoneVal->setText(currentUser.phone);
-            lblDobVal->setText(currentUser.dob);
-            lblCountryVal->setText(currentUser.country);
-            lblGenderVal->setText(currentUser.gender);
-            lblAddressVal->setText(currentUser.address);
-            lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
+                QJsonObject req;
+                req["type"] = "GET_RENTALS";
+                m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
 
-            QJsonObject req;
-            req["type"] = "GET_ACCOMMODATIONS";
-            m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+                stackedWidget->setCurrentIndex(2);
+            }
+            else
+            {
+                QString numeLocatie = userData["location_name"].toString();
+                int idLocatie = userData["location_id"].toInt();
+                currentUser.email = loginEmailInput->text().trimmed();
+                currentUser.address = QString::number(idLocatie);
+                if (lblAdminLocation) {
+                    lblAdminLocation->setText("🏢 Managing Estate: " + numeLocatie);
+                }
 
-            stackedWidget->setCurrentIndex(2);
+                QJsonObject req;
+                req["type"] = "GET_LOCATION_BOOKINGS";
+                req["location_id"] = idLocatie;
+                m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+
+                stackedWidget->setCurrentIndex(5);
+            }
         } else {
             QMessageBox::warning(this, "Login Error", obj["message"].toString());
         }
@@ -829,7 +825,7 @@ void MainWindow::handleBackendMessage(const QString &message)
     }
 
     // --- ACCOMMODATIONS ---
-    if (type == "GET_ACCOMMODATIONS") {
+    if (type == "GET_RENTALS") {
         QJsonArray dataArray = obj["data"].toArray();
         allAccommodations.clear();
 
@@ -881,4 +877,107 @@ void MainWindow::handleBackendMessage(const QString &message)
         goToLogin();
         return;
     }
-}
+    if (type == "GET_LOCATION_BOOKINGS_RESPONSE") {
+        QJsonArray bookingsArray = obj["data"].toArray();
+        userBookings.clear();
+
+        for (auto &room : currentAccommodationInDetails.rooms) {
+            room.bookedDates.clear();
+        }
+
+        for (const QJsonValue &value : bookingsArray) {
+            QJsonObject bObj = value.toObject();
+            BookingHistory b;
+            b.bookingId  = bObj["id"].toInt();
+            b.userName   = bObj["client_name"].toString();
+            b.hotelName  = bObj["room_type"].toString();
+            b.dateRange  = bObj["date_range"].toString();
+            b.status     = bObj["status"].toString();
+            userBookings.append(b);
+            if (b.status != "cancelled") {
+                int rId = bObj["room_id"].toInt();
+                QDate start = QDate::fromString(bObj["raw_check_in"].toString(), "yyyy-MM-dd");
+                QDate end = QDate::fromString(bObj["raw_check_out"].toString(), "yyyy-MM-dd");
+
+                for (auto &room : currentAccommodationInDetails.rooms) {
+                    if (room.id == rId) {
+                        for (QDate d = start; d < end; d = d.addDays(1)) {
+                            room.bookedDates.append(d);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (stackedWidget->currentIndex() == 4) {
+            displayRooms(roomSearchBar ? roomSearchBar->text() : "");
+        }
+        else if (stackedWidget->currentIndex() == 5) {
+            updateAdminDashboardUi();
+        }
+
+        return;
+    }
+    if (type == "GET_CLIENT_BOOKINGS_RESPONSE") {
+        QJsonArray bookingsArray = obj["data"].toArray();
+        userBookings.clear();
+        for (const QJsonValue &value : bookingsArray) {
+            QJsonObject bObj = value.toObject();
+            BookingHistory b;
+            b.userEmail  = currentUser.email;
+            b.bookingId  = bObj["id"].toInt();
+            b.hotelName  = bObj["hotel_name"].toString();
+            b.roomType   = bObj["room_type"].toString();
+            b.dateRange  = bObj["date_range"].toString();
+            b.status     = bObj["status"].toString();
+
+            userBookings.append(b);
+        }
+        updateBookingHistoryUi();
+        return;
+    }
+    if (type == "ADMIN_CANCEL_BOOKING_RESPONSE") {
+        QString status = obj["status"].toString();
+
+        if (status == "success") {
+            QMessageBox::information(this, "Success", "Reservation has been successfully cancelled in SQL Server!");
+
+            QJsonObject req;
+            req["type"] = "GET_LOCATION_BOOKINGS";
+            req["location_id"] = currentUser.address.toInt();
+
+            m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+        }
+        else {
+            QString serverMsg = obj["message"].toString();
+            QMessageBox::critical(this, "Error", "Failed to cancel reservation: " + serverMsg);
+        }
+        return;
+    }
+    if (type == "CREATE_RESERVATION_RESPONSE") {
+        QString status = obj["status"].toString();
+        QString serverMsg = obj["message"].toString();
+
+        if (status == "success") {
+            // 1. Actualizăm balanța locală cu valoarea exactă calculată de server
+            currentUser.balance = obj["new_balance"].toDouble();
+            if (lblBalanceVal) {
+                lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
+            }
+
+            QMessageBox::information(this, "Success", serverMsg);
+
+            // 2. Cerem serverului lista actualizată de rezervări pentru hotelul curent
+            // ca să redeseneze calendarul și să apară zilele proaspăt ocupate cu ROȘU!
+            QJsonObject req;
+            req["type"] = "GET_LOCATION_BOOKINGS";
+            req["location_id"] = currentAccommodationInDetails.id;
+            m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+        }
+        else {
+            QMessageBox::critical(this, "Booking Error", serverMsg);
+        }
+        return;
+    }
+    }

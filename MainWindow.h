@@ -55,7 +55,7 @@ private:
     void updateBookingHistoryUi();
     void updateAdminDashboardUi();
 
-    QString ip = "10.10.25.219";
+    QString ip = "127.0.0.1";
     SocketClient *m_socketClient;
 
     // Stacked pages
@@ -89,7 +89,7 @@ private:
 
     // Admin dashboard
     QVBoxLayout *adminHistoryLayout = nullptr;
-
+    QLabel *lblAdminLocation = nullptr;
     // Session state
     UserInfo currentUser;
     QList<Accommodation> allAccommodations;
