@@ -50,7 +50,7 @@ void MainWindow::setupUi()
     stackedWidget = new QStackedWidget(this);
     stackedWidget->addWidget(LoginPage::createWidget(this, loginEmailInput, loginPasswordInput));                                                                                     // 0
     stackedWidget->addWidget(RegisterPage::createWidget(this, regNameInput, regEmailInput, regPasswordInput, regPhoneInput, regAddressInput, regDobInput, regCountryInput, regGenderInput)); // 1
-    stackedWidget->addWidget(MainAppPage::createWidget(this, searchBarInput, accommodationsContainer, accommodationsLayout));                                                         // 2
+    stackedWidget->addWidget(MainAppPage::createWidget(this, searchBarInput, accommodationsContainer, accommodationsLayout));                                                                 // 2
     stackedWidget->addWidget(UserProfilePage::createWidget(this, lblNameVal, lblEmailVal, lblPhoneVal, lblDobVal, lblCountryVal, lblGenderVal, lblAddressVal, lblBalanceVal, historyLayout)); // 3
     stackedWidget->addWidget(DetailsPage::createWidget(this, detName, detAddress, detPromo, roomSearchBar, roomsLayout, cbBalcony, cbFridge, cbAC, cbTV, cbWifi, cbSofa));           // 4
     stackedWidget->addWidget(AdminDashboardPage::createWidget(this, adminHistoryLayout, lblAdminLocation));                                                                                        // 5
@@ -77,7 +77,6 @@ void MainWindow::goToRegister()
 
 void MainWindow::goToLogin()
 {
-    // Only send FORCE_LOGOUT when coming from authenticated pages (2 or 3).
     int idx = stackedWidget->currentIndex();
     if ((idx == 2 || idx == 3) && !currentUser.email.isEmpty()) {
         QJsonObject req;
@@ -175,7 +174,6 @@ void MainWindow::processLogin()
 {
     QString em = loginEmailInput->text().trimmed();
     QString ps = loginPasswordInput->text();
-
 
     QJsonObject userObj;
     userObj["type"]     = "LOGIN_USER";
@@ -463,9 +461,7 @@ void MainWindow::bookRoom(int roomId)
     };
     refreshCalendarColors();
 
-    connect(calendar, &QCalendarWidget::currentPageChanged, dialog, [=](int, int) {
-        refreshCalendarColors();
-    });
+    connect(calendar, &QCalendarWidget::currentPageChanged, dialog, [=](int, int) { refreshCalendarColors(); });
 
     connect(calendar, &QCalendarWidget::clicked, this, [=](const QDate &date) {
         if (date < QDate::currentDate()) {
@@ -518,6 +514,7 @@ void MainWindow::bookRoom(int roomId)
 
     QPushButton *btnConfirm = new QPushButton("Confirm Reservation", dialog);
     btnConfirm->setStyleSheet(primaryBtnStyle);
+    btnConfirm->setCursor(Qt::PointingHandCursor);
     layout->addWidget(btnConfirm);
 
     connect(btnConfirm, &QPushButton::clicked, this, [=]() {
@@ -529,32 +526,52 @@ void MainWindow::bookRoom(int roomId)
             return;
         }
 
-        int    nights        = start.daysTo(end);
-        double pricePerNight = selectedRoom->basePrice * (1.0 - currentAccommodationInDetails.discountPercent);
-        double totalCost     = pricePerNight * nights;
+        int nights = start.daysTo(end);
 
-        if (currentUser.balance < totalCost) {
+        double discountPercent = currentAccommodationInDetails.discountPercent;
+        double basePricePerNight = selectedRoom->basePrice;
+
+        double originalTotal = basePricePerNight * nights;
+        double discountedPricePerNight = basePricePerNight * (1.0 - discountPercent);
+        double finalTotal = discountedPricePerNight * nights;
+        double savedAmount = originalTotal - finalTotal;
+
+        // 1. POP-UP MODERN ȘI STILIZAT PENTRU FONDURI INSUFICIENTE
+        if (currentUser.balance < finalTotal) {
             QDialog *failDialog = new QDialog(dialog);
             failDialog->setAttribute(Qt::WA_DeleteOnClose);
             failDialog->setWindowTitle("Insufficient Funds");
-            failDialog->setFixedSize(380, 200);
-            failDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #ef4444; border-radius: 8px; }");
+            failDialog->setFixedSize(400, 260);
+            failDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #ef4444; border-radius: 12px; }");
 
             QVBoxLayout *failLayout = new QVBoxLayout(failDialog);
             failLayout->setContentsMargins(25, 25, 25, 25);
 
-            QLabel *failMsg = new QLabel(
-                QString("Booking failed! Insufficient funds.\n\nTotal Cost: %1 €\nYour Balance: %2 €")
-                    .arg(QString::number(totalCost, 'f', 2))
-                    .arg(QString::number(currentUser.balance, 'f', 2)), failDialog);
-            failMsg->setStyleSheet("color: #f8fafc; font-size: 14px; font-weight: bold;");
-            failMsg->setWordWrap(true);
-            failMsg->setAlignment(Qt::AlignCenter);
-            failLayout->addWidget(failMsg);
-            failLayout->addSpacing(15);
+            QLabel *failTitle = new QLabel("⚠️ Transaction Declined", failDialog);
+            failTitle->setStyleSheet("font-size: 18px; font-weight: bold; color: #ef4444; border: none; background: transparent;");
+            failTitle->setAlignment(Qt::AlignCenter);
+            failLayout->addWidget(failTitle);
+            failLayout->addSpacing(10);
 
-            QPushButton *btnOk = new QPushButton("Ok, I understand", failDialog);
-            btnOk->setStyleSheet(dangerBtnStyle + " padding: 8px 15px; font-size: 13px;");
+            QLabel *failBody = new QLabel(failDialog);
+            failBody->setTextFormat(Qt::RichText);
+            failBody->setWordWrap(true);
+            failBody->setAlignment(Qt::AlignCenter);
+            failBody->setStyleSheet("color: #94a3b8; font-size: 14px; border: none; background: transparent;");
+
+            failBody->setText(QString(
+                                  "You do not have enough funds to complete this booking.<br><br>"
+                                  "<table align='center' style='color: #94a3b8; font-size: 14px;'>"
+                                  "<tr><td align='right'>Required Amount:</td><td><b style='color: white;'>&nbsp;%1 €</b></td></tr>"
+                                  "<tr><td align='right'>Your Balance:</td><td><b style='color: #ef4444;'>&nbsp;%2 €</b></td></tr>"
+                                  "</table>"
+                                  ).arg(QString::number(finalTotal, 'f', 2)).arg(QString::number(currentUser.balance, 'f', 2)));
+
+            failLayout->addWidget(failBody);
+            failLayout->addStretch();
+
+            QPushButton *btnOk = new QPushButton("Got it, thanks", failDialog);
+            btnOk->setStyleSheet(dangerBtnStyle + " padding: 10px; font-size: 13px; font-weight: bold;");
             btnOk->setCursor(Qt::PointingHandCursor);
             connect(btnOk, &QPushButton::clicked, failDialog, &QDialog::accept);
             failLayout->addWidget(btnOk);
@@ -563,19 +580,86 @@ void MainWindow::bookRoom(int roomId)
             return;
         }
 
-        // --- PACHETUL JSON TRIMIS CĂTRE SERVERUL C++ ---
-        QJsonObject req;
-        req["type"] = "CREATE_RESERVATION";
-        req["client_id"] = IdUser;
-        req["room_id"] = selectedRoom->id;
-        req["check_in"] = start.toString("yyyy-MM-dd");
-        req["check_out"] = end.toString("yyyy-MM-dd");
-        req["total_cost"] = totalCost;
+        // 2. Pop-up de Confirmare Rezervare standard (dacă balanța e OK)
+        QDialog *payDialog = new QDialog(dialog);
+        payDialog->setWindowTitle("Confirm Booking & Payment");
+        payDialog->setFixedSize(420, 320);
+        payDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; }");
 
-        m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+        QVBoxLayout *payVBox = new QVBoxLayout(payDialog);
+        payVBox->setContentsMargins(25, 25, 25, 25);
 
-        // Închidem fereastra popup; succesul va fi afișat în handleBackendMessage
-        dialog->accept();
+        QLabel *payTitle = new QLabel("Reservation Summary", payDialog);
+        payTitle->setStyleSheet("font-size: 18px; font-weight: bold; color: white; border: none; background: transparent;");
+        payTitle->setAlignment(Qt::AlignCenter);
+        payVBox->addWidget(payTitle);
+        payVBox->addSpacing(15);
+
+        QLabel *payBody = new QLabel(payDialog);
+        payBody->setTextFormat(Qt::RichText);
+        payBody->setAlignment(Qt::AlignCenter);
+        payBody->setStyleSheet("color: #94a3b8; font-size: 14px; border: none; background: transparent;");
+
+        QString htmlContent = "";
+        if (discountPercent > 0.0) {
+            htmlContent = QString(
+                              "<span style='color: #94a3b8;'>Initial Total: <span style='text-decoration: line-through; color: #ef4444;'>%1 €</span></span><br>"
+                              "<span style='color: #f59e0b; font-weight: bold;'>Discount Applied: %2% OFF</span><br>"
+                              "<span style='color: #22c55e; font-size: 12px;'>You save: %3 €</span><br><br>"
+                              "<span style='color: white;'>Period: %4 night(s) | Rate: %5 € / night</span><br><br>"
+                              "<span style='font-size: 15px; color: white;'>Total to Pay:</span><br>"
+                              "<span style='font-size: 24px; color: #22c55e; font-weight: bold;'>%6 €</span>"
+                              )
+                              .arg(QString::number(originalTotal, 'f', 2))
+                              .arg(QString::number(discountPercent * 100, 'f', 0))
+                              .arg(QString::number(savedAmount, 'f', 2))
+                              .arg(nights)
+                              .arg(QString::number(discountedPricePerNight, 'f', 2))
+                              .arg(QString::number(finalTotal, 'f', 2));
+        } else {
+            htmlContent = QString(
+                              "<span style='color: white;'>Period: %1 night(s)</span><br>"
+                              "<span style='color: white;'>Standard Rate: %2 € / night</span><br><br><br>"
+                              "<span style='font-size: 15px; color: white;'>Total to Pay:</span><br>"
+                              "<span style='font-size: 24px; color: #22c55e; font-weight: bold;'>%3 €</span>"
+                              )
+                              .arg(nights)
+                              .arg(QString::number(basePricePerNight, 'f', 2))
+                              .arg(QString::number(finalTotal, 'f', 2));
+        }
+
+        payBody->setText(htmlContent);
+        payVBox->addWidget(payBody);
+        payVBox->addStretch();
+
+        QHBoxLayout *btnBox = new QHBoxLayout();
+        QPushButton *btnNo = new QPushButton("Cancel", payDialog);
+        btnNo->setStyleSheet(secondaryBtnStyle + " padding: 8px; font-size: 13px;");
+        btnNo->setCursor(Qt::PointingHandCursor);
+
+        QPushButton *btnYes = new QPushButton("Confirm & Pay", payDialog);
+        btnYes->setStyleSheet(primaryBtnStyle + " padding: 8px; font-size: 13px;");
+        btnYes->setCursor(Qt::PointingHandCursor);
+
+        btnBox->addWidget(btnNo);
+        btnBox->addWidget(btnYes);
+        payVBox->addLayout(btnBox);
+
+        connect(btnNo, &QPushButton::clicked, payDialog, &QDialog::reject);
+        connect(btnYes, &QPushButton::clicked, payDialog, &QDialog::accept);
+
+        if (payDialog->exec() == QDialog::Accepted) {
+            QJsonObject req;
+            req["type"] = "CREATE_RESERVATION";
+            req["client_id"] = IdUser;
+            req["room_id"] = selectedRoom->id;
+            req["check_in"] = start.toString("yyyy-MM-dd");
+            req["check_out"] = end.toString("yyyy-MM-dd");
+            req["total_cost"] = finalTotal;
+
+            m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+            dialog->accept();
+        }
     });
 
     dialog->exec();
@@ -586,59 +670,58 @@ void MainWindow::bookRoom(int roomId)
 // ---------------------------------------------------------------
 void MainWindow::updateBookingHistoryUi()
 {
-        if (!historyLayout) return;
+    if (!historyLayout) return;
 
-        QLayoutItem *child;
-        while ((child = historyLayout->takeAt(0)) != nullptr) {
-            if (child->widget()) delete child->widget();
-            delete child;
+    QLayoutItem *child;
+    while ((child = historyLayout->takeAt(0)) != nullptr) {
+        if (child->widget()) delete child->widget();
+        delete child;
+    }
+
+    bool any = false;
+    for (const auto &b : userBookings) {
+        if (b.userEmail != currentUser.email) continue;
+        any = true;
+
+        QFrame *fr = new QFrame();
+        fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 8px; border: 1px solid #334155; padding: 5px; }");
+        QHBoxLayout *cl = new QHBoxLayout(fr);
+        QVBoxLayout *inf = new QVBoxLayout();
+
+        QString titluAfisat = b.hotelName;
+        if (!b.roomType.isEmpty()) {
+            titluAfisat += " — " + b.roomType;
         }
 
-        bool any = false;
-        for (const auto &b : userBookings) {
-            if (b.userEmail != currentUser.email) continue;
-            any = true;
+        QLabel *hN = new QLabel(titluAfisat);
+        hN->setStyleSheet("font-weight: bold; color: white; border: none; background: transparent;");
 
-            QFrame *fr = new QFrame();
-            fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 8px; border: 1px solid #334155; padding: 5px; }");
-            QHBoxLayout *cl = new QHBoxLayout(fr);
-            QVBoxLayout *inf = new QVBoxLayout();
+        QLabel *hD = new QLabel(b.dateRange);
+        hD->setStyleSheet("color: #94a3b8; font-size: 12px; border: none; background: transparent;");
 
-            // Am modificat aici: concatenăm numele hotelului cu tipul/denumirea camerei
-            QString titluAfisat = b.hotelName;
-            if (!b.roomType.isEmpty()) {
-                titluAfisat += " — " + b.roomType;
-            }
+        inf->addWidget(hN);
+        inf->addWidget(hD);
 
-            QLabel *hN = new QLabel(titluAfisat);
-            hN->setStyleSheet("font-weight: bold; color: white; border: none; background: transparent;");
+        QLabel *st = new QLabel(b.status);
+        if (b.status == "finished")
+            st->setStyleSheet("color:#22c55e; border: none; background: transparent; font-weight: bold;");
+        else if (b.status == "cancelled")
+            st->setStyleSheet("color:#ef4444; border: none; background: transparent; font-weight: bold;");
+        else
+            st->setStyleSheet("color:#3b82f6; border: none; background: transparent; font-weight: bold;");
 
-            QLabel *hD = new QLabel(b.dateRange);
-            hD->setStyleSheet("color: #94a3b8; font-size: 12px; border: none; background: transparent;");
+        cl->addLayout(inf);
+        cl->addStretch();
+        cl->addWidget(st);
+        historyLayout->addWidget(fr);
+    }
 
-            inf->addWidget(hN);
-            inf->addWidget(hD);
-
-            QLabel *st = new QLabel(b.status);
-            if (b.status == "finished")
-                st->setStyleSheet("color:#22c55e; border: none; background: transparent; font-weight: bold;");
-            else if (b.status == "cancelled")
-                st->setStyleSheet("color:#ef4444; border: none; background: transparent; font-weight: bold;");
-            else
-                st->setStyleSheet("color:#3b82f6; border: none; background: transparent; font-weight: bold;");
-
-            cl->addLayout(inf);
-            cl->addStretch();
-            cl->addWidget(st);
-            historyLayout->addWidget(fr);
-        }
-
-        if (!any) {
-            QLabel *empty = new QLabel("No bookings yet.");
-            empty->setStyleSheet("color: #475569; font-size: 14px;");
-            empty->setAlignment(Qt::AlignCenter);
-            historyLayout->addWidget(empty);
-        }
+    if (!any) {
+        QLabel *empty = new QLabel("No bookings yet.");
+        empty->setStyleSheet("color: #475569; font-size: 14px;");
+        empty->setAlignment(Qt::AlignCenter);
+        historyLayout->addWidget(empty);
+    }
 }
 
 void MainWindow::updateAdminDashboardUi()
@@ -765,7 +848,6 @@ void MainWindow::handleBackendMessage(const QString &message)
             stackedWidget->setCurrentIndex(0);
         } else {
             QMessageBox::critical(this, "Registration Error", serverMsg);
-            // Stay on the register page so the user can fix the input.
         }
         return;
     }
@@ -870,7 +952,7 @@ void MainWindow::handleBackendMessage(const QString &message)
         return;
     }
 
-    // --- FORCE LOGOUT (server-initiated) ---
+    // --- FORCE LOGOUT ---
     if (type == "FORCE_LOGOUT") {
         allAccommodations.clear();
         currentUser = UserInfo();
@@ -941,7 +1023,7 @@ void MainWindow::handleBackendMessage(const QString &message)
         QString status = obj["status"].toString();
 
         if (status == "success") {
-            QMessageBox::information(this, "Success", "Reservation has been successfully cancelled in SQL Server!");
+            QMessageBox::information(this, "Success", "Reservation has been successfully cancelled!");
 
             QJsonObject req;
             req["type"] = "GET_LOCATION_BOOKINGS";
@@ -960,16 +1042,12 @@ void MainWindow::handleBackendMessage(const QString &message)
         QString serverMsg = obj["message"].toString();
 
         if (status == "success") {
-            // 1. Actualizăm balanța locală cu valoarea exactă calculată de server
             currentUser.balance = obj["new_balance"].toDouble();
             if (lblBalanceVal) {
                 lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
             }
 
             QMessageBox::information(this, "Success", serverMsg);
-
-            // 2. Cerem serverului lista actualizată de rezervări pentru hotelul curent
-            // ca să redeseneze calendarul și să apară zilele proaspăt ocupate cu ROȘU!
             QJsonObject req;
             req["type"] = "GET_LOCATION_BOOKINGS";
             req["location_id"] = currentAccommodationInDetails.id;
@@ -980,4 +1058,4 @@ void MainWindow::handleBackendMessage(const QString &message)
         }
         return;
     }
-    }
+}
