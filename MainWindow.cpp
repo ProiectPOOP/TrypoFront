@@ -679,7 +679,9 @@ void MainWindow::updateBookingHistoryUi()
     }
 
     bool any = false;
-    for (const auto &b : userBookings) {
+    // Modificat în for cu index i pentru a putea trimite indexul corect către funcția de anulare
+    for (int i = 0; i < userBookings.size(); ++i) {
+        const auto &b = userBookings[i];
         if (b.userEmail != currentUser.email) continue;
         any = true;
 
@@ -713,6 +715,19 @@ void MainWindow::updateBookingHistoryUi()
         cl->addLayout(inf);
         cl->addStretch();
         cl->addWidget(st);
+
+        // BUCATĂ NOUĂ: Dacă rezervarea nu e deja finalizată sau anulată, clientul poate cere anularea ei
+        if (b.status != "cancelled" && b.status != "finished") {
+            QPushButton *btnCancel = new QPushButton("Cancel");
+            btnCancel->setStyleSheet(dangerBtnStyle + " padding: 5px 10px; font-size: 12px; margin-left: 10px;");
+            btnCancel->setCursor(Qt::PointingHandCursor);
+
+            connect(btnCancel, &QPushButton::clicked, this, [this, i]() {
+                clientCancelBooking(i);
+            });
+            cl->addWidget(btnCancel);
+        }
+
         historyLayout->addWidget(fr);
     }
 
@@ -721,6 +736,95 @@ void MainWindow::updateBookingHistoryUi()
         empty->setStyleSheet("color: #475569; font-size: 14px;");
         empty->setAlignment(Qt::AlignCenter);
         historyLayout->addWidget(empty);
+    }
+}
+
+void MainWindow::clientCancelBooking(int bookingIndex)
+{
+    if (bookingIndex < 0 || bookingIndex >= userBookings.size()) return;
+    const auto &booking = userBookings[bookingIndex];
+
+    QDate checkInDate = QDate::fromString(booking.rawCheckIn, "yyyy-MM-dd");
+    QDate today = QDate::currentDate();
+
+
+    // 1. Calculăm numărul de zile și taxa de penalizare
+    int daysToCheckIn = today.daysTo(checkInDate);
+    double fee = 0.0;
+    bool areTaxa = false;
+
+    if (daysToCheckIn < 3) {
+        fee = booking.totalCost * 0.30; // 30% taxă de penalizare
+        areTaxa = true;
+    }
+
+    // 2. MODIFICARE: Calculăm suma returnată și noua balanță estimată pentru client
+    double refundAmount = booking.totalCost - fee;
+    double updatedBalance = currentUser.balance + refundAmount;
+
+    // Creăm dialogul pop-up modern
+    QDialog *confDialog = new QDialog(this);
+    confDialog->setAttribute(Qt::WA_DeleteOnClose);
+    confDialog->setWindowTitle("Confirmare Anulare");
+    confDialog->setFixedSize(400, 260);
+    confDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; }");
+
+    QVBoxLayout *vl = new QVBoxLayout(confDialog);
+    vl->setContentsMargins(25, 25, 25, 25);
+
+    QLabel *titleLabel = new QLabel("Anulezi această rezervare?", confDialog);
+    titleLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: white;");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    vl->addWidget(titleLabel);
+    vl->addSpacing(10);
+
+    QLabel *msgLabel = new QLabel(confDialog);
+    msgLabel->setWordWrap(true);
+    msgLabel->setAlignment(Qt::AlignCenter);
+    msgLabel->setStyleSheet("color: #94a3b8; font-size: 14px;");
+
+    if (areTaxa) {
+        msgLabel->setText(QString(
+                              "Atenție! Anulezi cu mai puțin de 3 zile înainte de check-in.<br>"
+                              "Se va aplica o taxă de penalizare de <b style='color: #ef4444;'>30%</b>.<br><br>"
+                              "Suma returnată în cont: <b style='color: #22c55e;'>%1 €</b><br>"
+                              "Penalizare reținută: <b style='color: #ef4444;'>%2 €</b>"
+                              ).arg(QString::number(refundAmount, 'f', 2)).arg(QString::number(fee, 'f', 2)));
+    } else {
+        msgLabel->setText(QString(
+                              "Anularea se face cu cel puțin 3 zile înainte de check-in.<br>"
+                              "Această operațiune este <b style='color: #22c55e;'>GRATUITĂ</b>.<br><br>"
+                              "Suma returnată integral: <b style='color: #22c55e;'>%1 €</b>"
+                              ).arg(QString::number(refundAmount, 'f', 2)));
+    }
+    vl->addWidget(msgLabel);
+    vl->addStretch();
+
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    QPushButton *btnNo  = new QPushButton("Păstrează Rezervarea", confDialog);
+    btnNo->setStyleSheet(secondaryBtnStyle + " padding: 8px 15px; font-size: 13px;");
+    btnNo->setCursor(Qt::PointingHandCursor);
+
+    QPushButton *btnYes = new QPushButton("Confirmă Anularea", confDialog);
+    btnYes->setStyleSheet(dangerBtnStyle + " padding: 8px 15px; font-size: 13px;");
+    btnYes->setCursor(Qt::PointingHandCursor);
+
+    btnLayout->addWidget(btnNo);
+    btnLayout->addWidget(btnYes);
+    vl->addLayout(btnLayout);
+
+    connect(btnNo,  &QPushButton::clicked, confDialog, &QDialog::reject);
+    connect(btnYes, &QPushButton::clicked, confDialog, &QDialog::accept);
+
+    if (confDialog->exec() == QDialog::Accepted) {
+        QJsonObject req;
+        req["type"] = "CLIENT_CANCEL_BOOKING";
+        req["b_id"] = booking.bookingId;
+        req["client_mail"] = currentUser.email;
+        req["new_balance"] = updatedBalance; // <-- NOU: Trimitem balanța gata calculată către backend
+        currentUser.balance=updatedBalance;
+
+        m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
     }
 }
 
@@ -1013,6 +1117,8 @@ void MainWindow::handleBackendMessage(const QString &message)
             b.roomType   = bObj["room_type"].toString();
             b.dateRange  = bObj["date_range"].toString();
             b.status     = bObj["status"].toString();
+            b.rawCheckIn = bObj["raw_check_in"].toString();  // NOU: se preia data brută (ex: "2026-06-15")
+            b.totalCost  = bObj["total_cost"].toDouble(0.0); // NOU: se preia costul total al rezervării
 
             userBookings.append(b);
         }
@@ -1055,6 +1161,25 @@ void MainWindow::handleBackendMessage(const QString &message)
         }
         else {
             QMessageBox::critical(this, "Booking Error", serverMsg);
+        }
+        return;
+    }
+
+    if (type == "CLIENT_CANCEL_BOOKING_RESPONSE") {
+        QString status = obj["status"].toString();
+        QString serverMsg = obj["message"].toString();
+
+        if (status == "success") {
+            // Dacă s-au reținut bani sau s-au returnat diferențe, actualizăm balanța clientului primită de la server
+            QMessageBox::information(this, "Succes", "Rezervarea a fost anulată cu succes!");
+
+            // Trimitem automat o cerere la server pentru a reîmprospăta lista istorică vizibilă pe ecran
+            QJsonObject req;
+            req["type"]  = "GET_CLIENT_BOOKINGS";
+            req["id"] = IdUser;
+            m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
+        } else {
+            QMessageBox::critical(this, "Eroare la Anulare", serverMsg);
         }
         return;
     }

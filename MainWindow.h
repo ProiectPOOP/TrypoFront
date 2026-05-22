@@ -54,8 +54,9 @@ private:
     void clearRegisterFields();
     void updateBookingHistoryUi();
     void updateAdminDashboardUi();
+    void clientCancelBooking(int bookingIndex);
 
-    QString ip = "127.0.0.1";
+    QString ip = "10.10.25.219";
     SocketClient *m_socketClient;
 
     // Stacked pages
