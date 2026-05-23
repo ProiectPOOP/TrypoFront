@@ -375,7 +375,7 @@ void MainWindow::bookRoom(int roomId)
     QDialog *dialog = new QDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowTitle("Book Room – " + selectedRoom->type);
-    dialog->resize(470, 580);
+    dialog->resize(470, 480);
     dialog->setStyleSheet("QDialog { background-color: #0f172a; }");
 
     QVBoxLayout *layout = new QVBoxLayout(dialog);
@@ -385,14 +385,22 @@ void MainWindow::bookRoom(int roomId)
     layout->addWidget(title);
 
     QLabel *statusLbl = new QLabel("Next action: Select CHECK-IN date", dialog);
-    statusLbl->setStyleSheet("color: #3b82f6; font-weight: bold; font-size: 13px; margin-bottom: 5px;");
+    statusLbl->setStyleSheet("color: #3b82f6; font-weight: bold; font-size: 13px; margin-bottom: 10px;");
     layout->addWidget(statusLbl);
+
+    QString customCalendarStyle =
+        "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #0f172a; padding: 4px; }"
+        "QCalendarWidget QToolButton { color: white; background-color: transparent; border: none; font-weight: bold; font-size: 14px; padding: 4px 8px; margin: 0px 2px; }"
+        "QCalendarWidget QToolButton:hover { background-color: #2563eb; border-radius: 4px; }"
+        "QCalendarWidget QMenu { background-color: #1e293b; color: white; border: 1px solid #475569; }"
+        "QCalendarWidget QSpinBox { background-color: #1e293b; color: white; border: 1px solid #475569; border-radius: 3px; padding: 2px 4px; min-width: 65px; margin-left: 10px; }"
+        "QCalendarWidget QSpinBox::up-button, QCalendarWidget QSpinBox::down-button { width: 16px; }"
+        "QCalendarWidget QAbstractItemView:enabled { background-color: #1e293b; color: white; selection-background-color: #2563eb; selection-color: white; border: none; outline: none; }"
+        "QCalendarWidget QAbstractItemView:disabled { color: #475569; }";
 
     QCalendarWidget *calendar = new QCalendarWidget(dialog);
     calendar->setGridVisible(true);
-    calendar->setStyleSheet(
-        "QCalendarWidget QWidget { color: #f8fafc; background-color: #1e293b; }"
-        "QCalendarWidget QAbstractItemView:enabled { background-color: #1e293b; selection-background-color: #2563eb; }");
+    calendar->setStyleSheet(customCalendarStyle);
     layout->addWidget(calendar);
 
     QTextCharFormat availableFormat, unavailableFormat, previewFormat, pastFormat;
@@ -401,24 +409,10 @@ void MainWindow::bookRoom(int roomId)
     previewFormat.setBackground(QColor("#f59e0b"));     previewFormat.setForeground(Qt::white);
     pastFormat.setBackground(QColor("#334155"));        pastFormat.setForeground(QColor("#64748b"));
 
-    QDateEdit *checkInEdit  = new QDateEdit(QDate::currentDate());
-    checkInEdit->setCalendarPopup(true);
-    checkInEdit->setStyleSheet(dropDownStyle);
-
-    QDateEdit *checkOutEdit = new QDateEdit(QDate::currentDate().addDays(1));
-    checkOutEdit->setCalendarPopup(true);
-    checkOutEdit->setStyleSheet(dropDownStyle);
-
-    QFormLayout *formLayout = new QFormLayout();
-    QString ls = "font-weight: bold; color: #94a3b8; font-size: 14px;";
-    QLabel *ciLbl = new QLabel("Check-in Date:");  ciLbl->setStyleSheet(ls);
-    QLabel *coLbl = new QLabel("Check-out Date:"); coLbl->setStyleSheet(ls);
-    formLayout->addRow(ciLbl, checkInEdit);
-    formLayout->addRow(coLbl, checkOutEdit);
-    layout->addLayout(formLayout);
-
-    auto isSelectingCheckIn  = std::make_shared<bool>(true);
-    auto hasFinalSelection   = std::make_shared<bool>(false);
+    auto checkInDate  = std::make_shared<QDate>(QDate::currentDate());
+    auto checkOutDate = std::make_shared<QDate>(QDate::currentDate().addDays(1));
+    auto isSelectingCheckIn = std::make_shared<bool>(true);
+    auto hasFinalSelection  = std::make_shared<bool>(false);
 
     auto refreshCalendarColors = [=]() {
         QDate today = QDate::currentDate();
@@ -430,7 +424,7 @@ void MainWindow::bookRoom(int roomId)
             if (bookedDate >= today) calendar->setDateTextFormat(bookedDate, unavailableFormat);
         }
         if (!(*isSelectingCheckIn) || *hasFinalSelection) {
-            for (QDate d = checkInEdit->date(); d <= checkOutEdit->date(); d = d.addDays(1)) {
+            for (QDate d = *checkInDate; d <= *checkOutDate; d = d.addDays(1)) {
                 if (d >= today) calendar->setDateTextFormat(d, previewFormat);
             }
         }
@@ -450,36 +444,36 @@ void MainWindow::bookRoom(int roomId)
         }
 
         if (*isSelectingCheckIn) {
-            checkInEdit->setDate(date);
-            checkOutEdit->setDate(date.addDays(1));
-            statusLbl->setText("Next action: Select CHECK-OUT date");
+            *checkInDate = date;
+            *checkOutDate = date.addDays(1);
+            statusLbl->setText(QString("📍 Check-in set: %1 | Now select CHECK-OUT date...").arg(date.toString("yyyy-MM-dd")));
             statusLbl->setStyleSheet("color: #f59e0b; font-weight: bold;");
             *isSelectingCheckIn = false;
             *hasFinalSelection  = false;
         } else {
-            if (date > checkInEdit->date()) {
+            if (date > *checkInDate) {
                 bool hasBlockedNight = false;
-                for (QDate d = checkInEdit->date(); d < date; d = d.addDays(1)) {
+                for (QDate d = *checkInDate; d < date; d = d.addDays(1)) {
                     if (selectedRoom->bookedDates.contains(d)) { hasBlockedNight = true; break; }
                 }
                 if (hasBlockedNight) {
-                    checkInEdit->setDate(date);
-                    checkOutEdit->setDate(date.addDays(1));
-                    statusLbl->setText("You selected an occupied period. New CHECK-IN set here!");
+                    *checkInDate = date;
+                    *checkOutDate = date.addDays(1);
+                    statusLbl->setText(QString("You selected an occupied period. New Check-in: %1").arg(date.toString("yyyy-MM-dd")));
                     statusLbl->setStyleSheet("color: #3b82f6; font-weight: bold;");
                     *isSelectingCheckIn = false;
                     *hasFinalSelection  = false;
                 } else {
-                    checkOutEdit->setDate(date);
-                    statusLbl->setText("Period Selected! Click again to reset Check-in.");
+                    *checkOutDate = date;
+                    statusLbl->setText(QString("✅ Period: %1 to %2 (Click again to reset)").arg(checkInDate->toString("yyyy-MM-dd")).arg(date.toString("yyyy-MM-dd")));
                     statusLbl->setStyleSheet("color: #22c55e; font-weight: bold;");
                     *isSelectingCheckIn = true;
                     *hasFinalSelection  = true;
                 }
             } else {
-                checkInEdit->setDate(date);
-                checkOutEdit->setDate(date.addDays(1));
-                statusLbl->setText("Next action: Select CHECK-OUT date");
+                *checkInDate = date;
+                *checkOutDate = date.addDays(1);
+                statusLbl->setText(QString("📍 Check-in set: %1 | Now select CHECK-OUT date...").arg(date.toString("yyyy-MM-dd")));
                 statusLbl->setStyleSheet("color: #f59e0b; font-weight: bold;");
                 *isSelectingCheckIn = false;
                 *hasFinalSelection  = false;
@@ -488,22 +482,23 @@ void MainWindow::bookRoom(int roomId)
         refreshCalendarColors();
     });
 
+    layout->addSpacing(15);
+
     QPushButton *btnConfirm = new QPushButton("Confirm Reservation", dialog);
     btnConfirm->setStyleSheet(primaryBtnStyle);
     btnConfirm->setCursor(Qt::PointingHandCursor);
     layout->addWidget(btnConfirm);
 
     connect(btnConfirm, &QPushButton::clicked, this, [=]() {
-        QDate start = checkInEdit->date();
-        QDate end   = checkOutEdit->date();
-
-        if (start >= end) {
-            QMessageBox::warning(dialog, "Error", "Check-out date must be after Check-in date.");
+        if (!(*hasFinalSelection)) {
+            QMessageBox::warning(dialog, "Selection Incomplete", "Please select a complete Check-in and Check-out period on the calendar first.");
             return;
         }
 
-        int nights = start.daysTo(end);
+        QDate start = *checkInDate;
+        QDate end   = *checkOutDate;
 
+        int nights = start.daysTo(end);
         double discountPercent = currentAccommodationInDetails.discountPercent;
         double basePricePerNight = selectedRoom->basePrice;
 
