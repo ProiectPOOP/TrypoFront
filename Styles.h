@@ -2,14 +2,14 @@
 #define STYLES_H
 #include <QString>
 
-// --- PALETA DE CULORI PENTRU REFERINȚĂ ---
+// referinta paleta culori
 // Fundal: #0f172a (Deep Slate Blue)
 // Accent Primary: #38bdf8 (Cyan Neon)
 // Accent Hover: #7dd3fc (Light Cyan)
 // Text: #f1f5f9
 // Text Secundar: #94a3b8
 
-// --- BUTON PRINCIPAL (Stil "3D Neon") ---
+// buton principal
 const QString primaryBtnStyle =
     "QPushButton { "
     "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #38bdf8, stop:1 #0ea5e9); "
@@ -21,22 +21,22 @@ const QString primaryBtnStyle =
     "   font-size: 14px; "
     "   text-transform: uppercase; "
     "   letter-spacing: 1px; "
-    "   margin-top: 5px; " // Spațiu pentru efectul de apăsare
+    "   margin-top: 5px; "
     "} "
     "QPushButton:hover { "
     "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7dd3fc, stop:1 #38bdf8); "
     "   border: 2px solid #ffffff; "
-    "   padding: 13px 27px; " // Ajustare padding pentru a compensa bordura mai groasă
+    "   padding: 13px 27px; "
     "} "
     "QPushButton:pressed { "
     "   background-color: #0c4a6e; "
     "   border: 1px solid #0ea5e9; "
-    "   margin-top: 7px; " // Efect de "apăsare" în jos
+    "   margin-top: 7px; "
     "   margin-bottom: -2px; "
     "   color: #e0f2fe; "
     "}";
 
-// --- BUTON SECUNDAR (Stil "Glass Outline") ---
+// butonul secundar
 const QString secondaryBtnStyle =
     "QPushButton { "
     "   background-color: rgba(255, 255, 255, 0.03); "
@@ -57,7 +57,7 @@ const QString secondaryBtnStyle =
     "   border-color: #38bdf8; "
     "}";
 
-// --- BUTON DE PERICOL (Stil "Neon Red") ---
+// warning button
 const QString dangerBtnStyle =
     "QPushButton { "
     "   background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ef4444, stop:1 #b91c1c); "
@@ -82,27 +82,27 @@ const QString dangerBtnStyle =
     "   margin-bottom: -2px; "
     "}";
 
-// --- CÂMPURI DE TEXT (Stil "Glassmorphism") ---
+// campuri text
 const QString lineEditStyle =
     "QLineEdit { "
     "   padding: 8px 18px; "
     "   min-height: 22px; "
     "   border: 1px solid rgba(255, 255, 255, 0.1); "
     "   border-radius: 10px; "
-    "   background-color: rgba(30, 41, 59, 0.5); " // Semi-transparent
+    "   background-color: rgba(30, 41, 59, 0.5); " // semi-transparent
     "   color: #f1f5f9; "
     "   font-size: 14px; "
     "} "
     "QLineEdit:focus { "
     "   border: 2px solid #38bdf8; "
     "   background-color: rgba(15, 23, 42, 0.8); "
-    "   padding: 7px 15px; " // Compensare bordură
+    "   padding: 7px 15px; "
     "} "
     "QLineEdit:hover { "
     "   border: 1px solid rgba(56, 189, 248, 0.5); "
     "}";
 
-// --- DROPDOWN-URI ȘI DATE PICKER (Stil modern cu indicatori custom) ---
+// drop down-uri si date
 const QString dropDownStyle =
     "QComboBox, QDateEdit { "
     "   padding: 8px 18px; "
@@ -124,14 +124,13 @@ const QString dropDownStyle =
     "   border-bottom-right-radius: 10px; "
     "   background-color: rgba(255, 255, 255, 0.02); "
     "} "
-    // Săgeată custom (desenată în CSS)
     "QComboBox::down-arrow, QDateEdit::down-arrow { "
     "   image: none; "
     "   border-left: 2px solid #94a3b8; "
     "   border-bottom: 2px solid #94a3b8; "
     "   width: 8px; "
     "   height: 8px; "
-    "   transform: rotate(-45deg); " // Nu funcționează nativ în Qt QSS, dar definim o geometrie
+    "   transform: rotate(-45deg); "
     "   margin-right: 5px; "
     "   margin-top: -2px; "
     "} "
@@ -152,7 +151,7 @@ const QString dropDownStyle =
     "   color: #f1f5f9; "
     "}";
 
-// --- CHECKBOX-URI (Stil "Neon Toggle") ---
+// checkbox
 const QString checkBoxStyle =
     "QCheckBox { "
     "   color: #94a3b8; "
@@ -173,26 +172,22 @@ const QString checkBoxStyle =
     "QCheckBox::indicator:checked { "
     "   background-color: #38bdf8; "
     "   border: 2px solid #ffffff; "
-    "   image: url(:/icons/check.png); " // Aici ar trebui o iconiță, dacă nu ai, va fi doar un pătrat plin neon.
     "}";
 
-// --- STILURI GLOBALE (Schimbări Majore de Fundal și Scrollbar) ---
 const QString globalLabelStyle =
-    // Fundal cu imagine transparentă și culoare de fallback
+    // fundal imagine transparenta
     "QMainWindow { "
-    "   background-color: #0f172a; " // Rămâne ca bază (fallback)
-    "   background-image: url(:/img/bg.jpg); " // Calea către imaginea ta
+    "   background-color: #0f172a; "
+    "   background-image: url(:/img/bg.jpg); " // imaginea de background
     "   background-position: center; "
     "   background-repeat: no-repeat; "
     "} "
 
-    // Label-uri implicite
     "QLabel { border: none; background: transparent; color: #f1f5f9; } "
 
-    // Titluri
     "QLabel[heading=\"true\"] { color: #ffffff; font-weight: 900; font-size: 24px; margin-bottom: 15px; } "
 
-    // --- SCROLLBAR "MINIMALIST CYAN" ---
+    // scrollbar
     "QScrollBar:vertical { "
     "   border: none; "
     "   background-color: rgba(15, 23, 42, 0.5); "
@@ -213,7 +208,7 @@ const QString globalLabelStyle =
     "} "
     "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; } "
 
-    // --- POP-UP-URI (QMessageBox) ---
+    // pop up-uri (message box)
     "QMessageBox { background-color: #1e293b; border: 2px solid #38bdf8; border-radius: 15px; } "
     "QMessageBox QLabel { color: #f1f5f9; font-size: 15px; padding: 10px; background: transparent; } "
     "QMessageBox QPushButton { "
@@ -222,4 +217,4 @@ const QString globalLabelStyle =
     "} "
     "QMessageBox QPushButton:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #7dd3fc, stop:1 #38bdf8); }";
 
-#endif // STYLES_H
+#endif

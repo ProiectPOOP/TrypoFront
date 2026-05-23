@@ -24,9 +24,7 @@
 #include <QTextCharFormat>
 #include <QVBoxLayout>
 
-// ---------------------------------------------------------------
-//  CONSTRUCTOR / DESTRUCTOR
-// ---------------------------------------------------------------
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
@@ -42,9 +40,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow() {}
 
-// ---------------------------------------------------------------
-//  SETUP UI
-// ---------------------------------------------------------------
+
 void MainWindow::setupUi()
 {
     stackedWidget = new QStackedWidget(this);
@@ -57,9 +53,7 @@ void MainWindow::setupUi()
     setCentralWidget(stackedWidget);
 }
 
-// ---------------------------------------------------------------
-//  Utility: SHA-256 password hash
-// ---------------------------------------------------------------
+
 static QString hashPassword(const QString &password)
 {
     QByteArray passwordData = password.toUtf8();
@@ -67,9 +61,7 @@ static QString hashPassword(const QString &password)
     return hashedData.toHex();
 }
 
-// ---------------------------------------------------------------
-//  NAVIGATION SLOTS
-// ---------------------------------------------------------------
+
 void MainWindow::goToRegister()
 {
     stackedWidget->setCurrentIndex(1);
@@ -123,9 +115,7 @@ void MainWindow::adminLogout()
     stackedWidget->setCurrentIndex(0);
 }
 
-// ---------------------------------------------------------------
-//  REGISTER
-// ---------------------------------------------------------------
+// register
 void MainWindow::processRegister()
 {
     QString em = regEmailInput->text().trimmed();
@@ -171,9 +161,7 @@ void MainWindow::processRegister()
     qDebug() << "Register request sent for:" << em;
 }
 
-// ---------------------------------------------------------------
-//  LOGIN
-// ---------------------------------------------------------------
+// login
 void MainWindow::processLogin()
 {
     QString em = loginEmailInput->text().trimmed();
@@ -188,9 +176,7 @@ void MainWindow::processLogin()
     qDebug() << "Login request sent for:" << em;
 }
 
-// ---------------------------------------------------------------
-//  FILTER SLOTS
-// ---------------------------------------------------------------
+// filtrare sloturi
 void MainWindow::filterAccommodations(const QString &q)
 {
     populateAccommodations(q);
@@ -201,9 +187,7 @@ void MainWindow::filterRooms(const QString &query)
     displayRooms(query);
 }
 
-// ---------------------------------------------------------------
-//  CLEAR REGISTER FIELDS
-// ---------------------------------------------------------------
+// stergere campuri
 void MainWindow::clearRegisterFields()
 {
     if (regNameInput)     regNameInput->clear();
@@ -216,9 +200,6 @@ void MainWindow::clearRegisterFields()
     if (regGenderInput)   regGenderInput->setCurrentIndex(0);
 }
 
-// ---------------------------------------------------------------
-//  ACCOMMODATION DETAILS
-// ---------------------------------------------------------------
 void MainWindow::openAccommodationDetails(const Accommodation &acc)
 {
     currentAccommodationInDetails = acc;
@@ -249,9 +230,6 @@ void MainWindow::openAccommodationDetails(const Accommodation &acc)
     stackedWidget->setCurrentIndex(4);
 }
 
-// ---------------------------------------------------------------
-//  DISPLAY ROOMS
-// ---------------------------------------------------------------
 void MainWindow::displayRooms(const QString &f)
 {
     QLayoutItem *child;
@@ -337,9 +315,6 @@ void MainWindow::displayRooms(const QString &f)
     }
 }
 
-// ---------------------------------------------------------------
-//  ACCOMMODATIONS LIST
-// ---------------------------------------------------------------
 void MainWindow::populateAccommodations(const QString &f)
 {
     QLayoutItem *c;
@@ -389,9 +364,6 @@ void MainWindow::populateAccommodations(const QString &f)
     }
 }
 
-// ---------------------------------------------------------------
-//  BOOKING
-// ---------------------------------------------------------------
 void MainWindow::bookRoom(int roomId)
 {
     Room *selectedRoom = nullptr;
@@ -493,7 +465,7 @@ void MainWindow::bookRoom(int roomId)
                 if (hasBlockedNight) {
                     checkInEdit->setDate(date);
                     checkOutEdit->setDate(date.addDays(1));
-                    statusLbl->setText("Jumped over a blocked zone. New CHECK-IN set here!");
+                    statusLbl->setText("You selected an occupied period. New CHECK-IN set here!");
                     statusLbl->setStyleSheet("color: #3b82f6; font-weight: bold;");
                     *isSelectingCheckIn = false;
                     *hasFinalSelection  = false;
@@ -540,7 +512,6 @@ void MainWindow::bookRoom(int roomId)
         double finalTotal = discountedPricePerNight * nights;
         double savedAmount = originalTotal - finalTotal;
 
-        // 1. POP-UP MODERN ȘI STILIZAT PENTRU FONDURI INSUFICIENTE
         if (currentUser.balance < finalTotal) {
             QDialog *failDialog = new QDialog(dialog);
             failDialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -584,7 +555,6 @@ void MainWindow::bookRoom(int roomId)
             return;
         }
 
-        // 2. Pop-up de Confirmare Rezervare standard (dacă balanța e OK)
         QDialog *payDialog = new QDialog(dialog);
         payDialog->setWindowTitle("Confirm Booking & Payment");
         payDialog->setFixedSize(420, 320);
@@ -669,9 +639,6 @@ void MainWindow::bookRoom(int roomId)
     dialog->exec();
 }
 
-// ---------------------------------------------------------------
-//  BOOKING HISTORY (client view)
-// ---------------------------------------------------------------
 void MainWindow::updateBookingHistoryUi()
 {
     if (!historyLayout) return;
@@ -683,7 +650,6 @@ void MainWindow::updateBookingHistoryUi()
     }
 
     bool any = false;
-    // Modificat în for cu index i pentru a putea trimite indexul corect către funcția de anulare
     for (int i = 0; i < userBookings.size(); ++i) {
         const auto &b = userBookings[i];
         if (b.userEmail != currentUser.email) continue;
@@ -720,7 +686,6 @@ void MainWindow::updateBookingHistoryUi()
         cl->addStretch();
         cl->addWidget(st);
 
-        // BUCATĂ NOUĂ: Dacă rezervarea nu e deja finalizată sau anulată, clientul poate cere anularea ei
         if (b.status != "cancelled" && b.status != "finished") {
             QPushButton *btnCancel = new QPushButton("Cancel");
             btnCancel->setStyleSheet(dangerBtnStyle + " padding: 5px 10px; font-size: 12px; margin-left: 10px;");
@@ -752,31 +717,30 @@ void MainWindow::clientCancelBooking(int bookingIndex)
     QDate today = QDate::currentDate();
 
 
-    // 1. Calculăm numărul de zile și taxa de penalizare
+    // calculam numarul de zile si taxa de penalizare
     int daysToCheckIn = today.daysTo(checkInDate);
     double fee = 0.0;
     bool areTaxa = false;
 
     if (daysToCheckIn < 3) {
-        fee = booking.totalCost * 0.30; // 30% taxă de penalizare
+        fee = booking.totalCost * 0.30; // 30% taxa de penalizare
         areTaxa = true;
     }
 
-    // 2. MODIFICARE: Calculăm suma returnată și noua balanță estimată pentru client
+    // suma returnata si noua balanta a clientului
     double refundAmount = booking.totalCost - fee;
     double updatedBalance = currentUser.balance + refundAmount;
 
-    // Creăm dialogul pop-up modern
     QDialog *confDialog = new QDialog(this);
     confDialog->setAttribute(Qt::WA_DeleteOnClose);
-    confDialog->setWindowTitle("Confirmare Anulare");
+    confDialog->setWindowTitle("Cancellation confirmation");
     confDialog->setFixedSize(480, 260);
     confDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; }");
 
     QVBoxLayout *vl = new QVBoxLayout(confDialog);
     vl->setContentsMargins(25, 25, 25, 25);
 
-    QLabel *titleLabel = new QLabel("Anulezi această rezervare?", confDialog);
+    QLabel *titleLabel = new QLabel("Are you sure you want to cancel this reservation?", confDialog);
     titleLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: white;");
     titleLabel->setAlignment(Qt::AlignCenter);
     vl->addWidget(titleLabel);
@@ -789,27 +753,27 @@ void MainWindow::clientCancelBooking(int bookingIndex)
 
     if (areTaxa) {
         msgLabel->setText(QString(
-                              "Atenție! Anulezi cu mai puțin de 3 zile înainte de check-in.<br>"
-                              "Se va aplica o taxă de penalizare de <b style='color: #ef4444;'>30%</b>.<br><br>"
-                              "Suma returnată în cont: <b style='color: #22c55e;'>%1 €</b><br>"
-                              "Penalizare reținută: <b style='color: #ef4444;'>%2 €</b>"
+                              "Warning! You are cancelling less than 3 days before check-in.<br>"
+                              "A penalty fee of <b style='color: #ef4444;'>30%</b> will apply.<br><br>"
+                              "Amount refunded to your account: <b style='color: #22c55e;'>%1 €</b><br>"
+                              "Retained penalty: <b style='color: #ef4444;'>%2 €</b>"
                               ).arg(QString::number(refundAmount, 'f', 2)).arg(QString::number(fee, 'f', 2)));
     } else {
         msgLabel->setText(QString(
-                              "Anularea se face cu cel puțin 3 zile înainte de check-in.<br>"
-                              "Această operațiune este <b style='color: #22c55e;'>GRATUITĂ</b>.<br><br>"
-                              "Suma returnată integral: <b style='color: #22c55e;'>%1 €</b>"
+                              "Cancellation is made at least 3 days before check-in.<br>"
+                              "This operation is <b style='color: #22c55e;'>FREE</b>.<br><br>"
+                              "Full amount refunded: <b style='color: #22c55e;'>%1 €</b>"
                               ).arg(QString::number(refundAmount, 'f', 2)));
     }
     vl->addWidget(msgLabel);
     vl->addStretch();
 
     QHBoxLayout *btnLayout = new QHBoxLayout();
-    QPushButton *btnNo  = new QPushButton("Păstrează Rezervarea", confDialog);
+    QPushButton *btnNo  = new QPushButton("Keep Reservation", confDialog);
     btnNo->setStyleSheet(secondaryBtnStyle + " padding: 8px 15px; font-size: 13px;");
     btnNo->setCursor(Qt::PointingHandCursor);
 
-    QPushButton *btnYes = new QPushButton("Confirmă Anularea", confDialog);
+    QPushButton *btnYes = new QPushButton("Cancel Reservation", confDialog);
     btnYes->setStyleSheet(dangerBtnStyle + " padding: 8px 15px; font-size: 13px;");
     btnYes->setCursor(Qt::PointingHandCursor);
 
@@ -825,7 +789,7 @@ void MainWindow::clientCancelBooking(int bookingIndex)
         req["type"] = "CLIENT_CANCEL_BOOKING";
         req["b_id"] = booking.bookingId;
         req["client_mail"] = currentUser.email;
-        req["new_balance"] = updatedBalance; // <-- NOU: Trimitem balanța gata calculată către backend
+        req["new_balance"] = updatedBalance;
         currentUser.balance=updatedBalance;
 
         m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
@@ -843,7 +807,6 @@ void MainWindow::updateAdminDashboardUi()
     }
 
     struct GlobalBooking { QString user, hotel, dates, status; };
-    // --- CITIM TEXTUL DIN BARA DE CĂUTARE ---
     QString filterText = adminSearchBar ? adminSearchBar->text().trimmed() : "";
 
     auto addCard = [this](const QString &user, const QString &hotel,
@@ -929,9 +892,8 @@ void MainWindow::updateAdminDashboardUi()
     };
 
     for (int i = 0; i < userBookings.size(); ++i) {
-        // --- FILTRARE DUPĂ NUMELE CLIENTULUI ---
         if (!filterText.isEmpty() && !userBookings[i].userName.contains(filterText, Qt::CaseInsensitive)) {
-            continue; // Dacă nu se potrivește cu ce a scris adminul, sărim peste card
+            continue;
         }
 
         addCard(userBookings[i].userName,
@@ -943,9 +905,7 @@ void MainWindow::updateAdminDashboardUi()
     }
 }
 
-// ---------------------------------------------------------------
-//  BACKEND MESSAGE HANDLER
-// ---------------------------------------------------------------
+// backend messages
 void MainWindow::handleBackendMessage(const QString &message)
 {
     QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
@@ -954,7 +914,7 @@ void MainWindow::handleBackendMessage(const QString &message)
     QJsonObject obj  = doc.object();
     QString type     = obj["type"].toString();
 
-    // --- REGISTER ---
+    // register
     if (type == "REGISTER_RESPONSE") {
         QString status    = obj["status"].toString();
         QString serverMsg = obj["message"].toString();
@@ -967,7 +927,7 @@ void MainWindow::handleBackendMessage(const QString &message)
         return;
     }
 
-    // --- LOGIN ---
+    // login
     if (type == "LOGIN_RESPONSE") {
         QString status = obj["status"].toString();
         if (status == "success") {
@@ -1021,7 +981,7 @@ void MainWindow::handleBackendMessage(const QString &message)
         return;
     }
 
-    // --- ACCOMMODATIONS ---
+    // accomodations
     if (type == "GET_RENTALS") {
         QJsonArray dataArray = obj["data"].toArray();
         allAccommodations.clear();
@@ -1067,7 +1027,6 @@ void MainWindow::handleBackendMessage(const QString &message)
         return;
     }
 
-    // --- FORCE LOGOUT ---
     if (type == "FORCE_LOGOUT") {
         allAccommodations.clear();
         currentUser = UserInfo();
@@ -1128,8 +1087,8 @@ void MainWindow::handleBackendMessage(const QString &message)
             b.roomType   = bObj["room_type"].toString();
             b.dateRange  = bObj["date_range"].toString();
             b.status     = bObj["status"].toString();
-            b.rawCheckIn = bObj["raw_check_in"].toString();  // NOU: se preia data brută (ex: "2026-06-15")
-            b.totalCost  = bObj["total_cost"].toDouble(0.0); // NOU: se preia costul total al rezervării
+            b.rawCheckIn = bObj["raw_check_in"].toString();
+            b.totalCost  = bObj["total_cost"].toDouble(0.0);
 
             userBookings.append(b);
         }
@@ -1181,12 +1140,10 @@ void MainWindow::handleBackendMessage(const QString &message)
         QString serverMsg = obj["message"].toString();
 
         if (status == "success") {
-            // Dacă s-au reținut bani sau s-au returnat diferențe, actualizăm balanța clientului primită de la server
-            QMessageBox::information(this, "Succes", "Rezervarea a fost anulată cu succes!");
+            QMessageBox::information(this, "Success", "Reservation cancelled successfully!");
             if (lblBalanceVal) {
                 lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
             }
-            // Trimitem automat o cerere la server pentru a reîmprospăta lista istorică vizibilă pe ecran
             QJsonObject req;
             req["type"]  = "GET_CLIENT_BOOKINGS";
             req["id"] = IdUser;
@@ -1201,6 +1158,5 @@ void MainWindow::handleBackendMessage(const QString &message)
 void MainWindow::filterAdminBookings(const QString &query)
 {
     Q_UNUSED(query);
-    // Pur și simplu redesenăm interfața; updateAdminDashboardUi() va citi singură textul.
     updateAdminDashboardUi();
 }

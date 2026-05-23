@@ -25,10 +25,9 @@ QWidget *RegisterPage::createWidget(MainWindow *mw,
 
     QLabel *t = new QLabel("Register to Trypo", w);
 
-    // Aliniem textul pe centru
+    // centrare text
     t->setAlignment(Qt::AlignCenter);
 
-    // Aplicăm același stil neon uniform
     t->setStyleSheet(
         "font-family: 'Segoe UI', Arial, sans-serif;"
         "font-size: 32px;"
@@ -65,7 +64,6 @@ QWidget *RegisterPage::createWidget(MainWindow *mw,
 
     regCountryInput = new QComboBox();
 
-    // 1. Lista extinsă cu țările importante din lume
     QStringList countries = {
         "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia",
         "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium",
@@ -94,16 +92,14 @@ QWidget *RegisterPage::createWidget(MainWindow *mw,
     regCountryInput->addItems(countries);
     regCountryInput->setStyleSheet(dropDownStyle);
 
-    // 2. Funcționalitatea de căutare (Filtrare)
-    regCountryInput->setEditable(true); // Permitem utilizatorului să scrie text pentru a căuta
-    regCountryInput->setInsertPolicy(QComboBox::NoInsert); // Interzicem adăugarea de țări inventate de user
+    regCountryInput->setEditable(true); // permitem utilizatorului sa scrie text pentru a cauta
+    regCountryInput->setInsertPolicy(QComboBox::NoInsert); // Interzicem adaugarea de tari inventate de user
 
-    // 3. Setarea unui Completer pentru sugestii inteligente
+    // completer -> sugestii inteligente
     QCompleter *completer = new QCompleter(countries, w);
-    completer->setCaseSensitivity(Qt::CaseInsensitive); // Caută indiferent de litere mari/mici
-    completer->setFilterMode(Qt::MatchContains);        // Permite găsirea textului oriunde în cuvânt (ex: "nia" găsește "Romania")
+    completer->setCaseSensitivity(Qt::CaseInsensitive); // cauta indiferent de litere mari/mici
+    completer->setFilterMode(Qt::MatchContains);        // gasirea textului oriunde in cuvant
 
-    // 4. Stilizăm pop-up-ul sugestiilor pentru a se integra în design-ul "Dark Neon"
     completer->popup()->setStyleSheet(
         "QAbstractItemView { "
         "   background-color: #1e293b; "

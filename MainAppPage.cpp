@@ -42,21 +42,15 @@ QWidget *MainAppPage::createWidget(MainWindow *mw,
 
     QScrollArea *sa = new QScrollArea();
     sa->setWidgetResizable(true);
-    // 1. Forțează transparența pe viewport-ul scroll-ului
+    // transparenta pe viewport-ul scroll-ului
     sa->setStyleSheet("QScrollArea, QScrollArea > QWidget { background: transparent; border: none; }");
 
     accommodationsContainer = new QWidget();
-    // 2. Elimină fundalul negru al containerului propriu-zis
     accommodationsContainer->setStyleSheet("background: transparent;");
     accommodationsLayout = new QVBoxLayout(accommodationsContainer);
     accommodationsLayout->setAlignment(Qt::AlignTop);
     sa->setWidget(accommodationsContainer);
     ml->addWidget(sa);
-
-    // Do NOT request accommodations here at construction time.
-    // The user is not logged in yet when this widget is built, so a request
-    // sent now would be unauthenticated. We send GET_ACCOMMODATIONS inside
-    // handleBackendMessage after a successful LOGIN_RESPONSE instead.
 
     QObject::connect(pb, &QPushButton::clicked, mw, &MainWindow::goToUserProfile);
     QObject::connect(lb, &QPushButton::clicked, mw, &MainWindow::goToLogin);

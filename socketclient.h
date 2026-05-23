@@ -27,10 +27,7 @@ private slots:
 
 private:
     QTcpSocket *m_socket;
-    // FIX: accumulation buffer for length-prefixed framing.
-    // TCP may deliver data in fragments, so incoming bytes are buffered
-    // here until a complete message (header + body) has arrived.
     QByteArray m_buffer;
 };
 
-#endif // SOCKETCLIENT_H
+#endif

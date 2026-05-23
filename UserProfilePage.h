@@ -22,4 +22,4 @@ public:
                                  QVBoxLayout *&historyLayout);
 };
 
-#endif // USERPROFILEPAGE_H
+#endif

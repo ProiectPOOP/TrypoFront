@@ -13,9 +13,6 @@ QWidget *AdminDashboardPage::createWidget(MainWindow *mw, QVBoxLayout *&adminHis
     QVBoxLayout *ml = new QVBoxLayout(w);
     ml->setContentsMargins(40, 30, 40, 30);
 
-    // ==========================================
-    // ANTET: Se păstrează intact titlul și butonul de logout
-    // ==========================================
     QHBoxLayout *h = new QHBoxLayout();
     QLabel *pt = new QLabel("🔑 Admin Control Panel");
     pt->setStyleSheet("font-size: 24px; font-weight: bold; color: #ef4444;");
@@ -30,17 +27,16 @@ QWidget *AdminDashboardPage::createWidget(MainWindow *mw, QVBoxLayout *&adminHis
     h->addWidget(btnLogout);
     ml->addLayout(h);
 
-    // Label-ul pentru managementul locației
+    // label-ul pentru managementul locatiei
     adminLocationLabel = new QLabel("Loading location...", w);
     adminLocationLabel->setStyleSheet("font-size: 15px; color: #64748b; font-style: italic; margin-top: -5px;");
     ml->addWidget(adminLocationLabel);
-    // ==========================================
 
     ml->addSpacing(20);
 
-    // Bara de căutare pentru filtrare locală după client
+    // bara de cautare pentru filtrare locala dupa client
     adminSearchBar = new QLineEdit();
-    adminSearchBar->setPlaceholderText("🔍 Caută rezervări după numele clientului...");
+    adminSearchBar->setPlaceholderText("🔍 Search reservations by customer name...");
     adminSearchBar->setStyleSheet(lineEditStyle);
     QObject::connect(adminSearchBar, &QLineEdit::textChanged, mw, &MainWindow::filterAdminBookings);
     ml->addWidget(adminSearchBar);
@@ -51,7 +47,7 @@ QWidget *AdminDashboardPage::createWidget(MainWindow *mw, QVBoxLayout *&adminHis
     sub->setStyleSheet("font-size: 18px; font-weight: bold; color: #3b82f6; margin-bottom: 10px;");
     ml->addWidget(sub);
 
-    // Zona de scroll complet transparentă (fără blocul negru)
+    // zona de scroll complet transparenta (fara blocul negru)
     QScrollArea *sa = new QScrollArea();
     sa->setWidgetResizable(true);
     sa->setStyleSheet("QScrollArea, QScrollArea > QWidget { background: transparent; border: none; }");

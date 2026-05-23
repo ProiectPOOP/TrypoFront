@@ -14,4 +14,4 @@ public:
     static QWidget *createWidget(MainWindow *mw, QVBoxLayout *&adminHistoryLayout, QLabel *&adminLocationLabel, QLineEdit *&adminSearchBar);
 };
 
-#endif // ADMINDASHBOARDPAGE_H
+#endif

@@ -30,20 +30,20 @@ public slots:
     void backToMainApp();
     void adminLogout();
 
-    // Auth
+    // authentification
     void processLogin();
     void processRegister();
 
-    // Search / filter
+    // search / filter
     void filterAccommodations(const QString &query);
     void filterRooms(const QString &query);
     void filterAdminBookings(const QString &query);
 
-    // Accommodation details & booking
+    // accomodation details & booking
     void openAccommodationDetails(const Accommodation &acc);
     void bookRoom(int roomId);
 
-    // Backend
+    // backend
     void handleBackendMessage(const QString &message);
 
 private:
@@ -60,44 +60,44 @@ private:
     QString ip = "10.10.25.219";
     SocketClient *m_socketClient;
 
-    // Stacked pages
+    // stacked pages
     QStackedWidget *stackedWidget;
 
-    // Login page
+    // login page
     QLineEdit *loginEmailInput, *loginPasswordInput;
 
-    // Register page
+    // register page
     QLineEdit *regNameInput, *regEmailInput, *regPasswordInput,
         *regPhoneInput, *regAddressInput;
     QDateEdit *regDobInput;
     QComboBox *regCountryInput, *regGenderInput;
 
-    // Main app page
+    // main app page
     QLineEdit   *searchBarInput;
     QWidget     *accommodationsContainer;
     QVBoxLayout *accommodationsLayout;
 
-    // Profile page
+    // profile page
     QLabel *lblNameVal, *lblEmailVal, *lblPhoneVal, *lblDobVal,
         *lblCountryVal, *lblGenderVal, *lblAddressVal, *lblBalanceVal;
     QVBoxLayout *historyLayout;
 
-    // Details / rooms page
+    // details / rooms page
     QLabel    *detName, *detAddress, *detPromo;
     QLineEdit *roomSearchBar;
     QVBoxLayout *roomsLayout;
     QCheckBox *cbBalcony, *cbFridge, *cbAC, *cbTV, *cbWifi, *cbSofa;
     Accommodation currentAccommodationInDetails;
 
-    // Admin dashboard
+    // admin dashboard
     QVBoxLayout *adminHistoryLayout = nullptr;
     QLabel *lblAdminLocation = nullptr;
     QLineEdit *adminSearchBar = nullptr;
 
-    // Session state
+    // session state
     UserInfo currentUser;
     QList<Accommodation> allAccommodations;
     QList<BookingHistory> userBookings;
 };
 
-#endif // MAINWINDOW_H
+#endif

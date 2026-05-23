@@ -22,4 +22,4 @@ public:
                                  QComboBox *&regGenderInput);
 };
 
-#endif // REGISTERPAGE_H
+#endif

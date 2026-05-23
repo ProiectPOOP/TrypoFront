@@ -19,8 +19,6 @@ void SocketClient::connectToBackend(const QString &host, quint16 port)
     m_socket->connectToHost(host, port);
 }
 
-// FIX: Prefix every outgoing message with a 4-byte big-endian length,
-// matching the server's recvAll() which reads the length header first.
 void SocketClient::sendMessage(const QString &message)
 {
     if (m_socket->state() != QAbstractSocket::ConnectedState)
@@ -37,27 +35,18 @@ void SocketClient::sendMessage(const QString &message)
     m_socket->flush();
 }
 
-// FIX: The old onReadyRead() called readAll() and emitted immediately.
-// This breaks with length-prefixed framing because TCP can deliver data
-// in fragments — readAll() may return only part of a message, or multiple
-// messages merged together.
-// Now we buffer incoming bytes and only emit complete messages.
 void SocketClient::onReadyRead()
 {
     m_buffer.append(m_socket->readAll());
 
-    // Process as many complete messages as are available in the buffer
     while (true) {
-        // Need at least 4 bytes for the length header
         if (m_buffer.size() < 4)
             break;
 
-        // Peek at the length without consuming it yet
         quint32 msgLength;
         memcpy(&msgLength, m_buffer.constData(), sizeof(msgLength));
         msgLength = qFromBigEndian<quint32>(msgLength);
 
-        // Sanity check: reject absurdly large messages (64 MB cap, same as server)
         if (msgLength > 64 * 1024 * 1024) {
             qWarning() << "Message too large (" << msgLength << "bytes), disconnecting.";
             m_socket->disconnectFromHost();
@@ -65,11 +54,9 @@ void SocketClient::onReadyRead()
             return;
         }
 
-        // Wait until the full message body has arrived
         if (m_buffer.size() < static_cast<int>(4 + msgLength))
             break;
 
-        // Extract the complete message
         QByteArray payload = m_buffer.mid(4, static_cast<int>(msgLength));
         m_buffer.remove(0, static_cast<int>(4 + msgLength));
 

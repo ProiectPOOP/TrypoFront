@@ -26,4 +26,4 @@ public:
                                  QCheckBox *&cbSofa);
 };
 
-#endif // DETAILSPAGE_H
+#endif

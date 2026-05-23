@@ -4,7 +4,6 @@
 #include <QLineEdit>
 #include <QWidget>
 
-// Forward declaration
 class MainWindow;
 
 class LoginPage
@@ -15,4 +14,4 @@ public:
                                  QLineEdit *&loginPasswordInput);
 };
 
-#endif // LOGINPAGE_H
+#endif

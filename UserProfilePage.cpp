@@ -96,8 +96,7 @@ QWidget *UserProfilePage::createWidget(MainWindow *mw,
     hc->setStyleSheet("background: transparent;");
     historyLayout = new QVBoxLayout(hc);
     historyLayout->setAlignment(Qt::AlignTop);
-    // Note: updateBookingHistoryUi() is called from MainWindow::goToUserProfile()
-    // each time the page is shown, so we do NOT call it here.
+
     hsa->setWidget(hc);
     rightColumn->addWidget(hsa);
 

@@ -68,9 +68,7 @@ QWidget *DetailsPage::createWidget(MainWindow *mw,
     ml->addSpacing(10);
     ml->addLayout(filtersLayout);
 
-    // FIX: Use a consistent lambda that reads roomSearchBar->text() safely.
-    // Previously the lambda captured roomSearchBar before it was constructed,
-    // which could cause a null dereference on the first filter toggle.
+    // functie lambda ce actualizeaza lista camerei ori de cate ori bifam/debifam un filtru
     auto updateRoomFilters = [mw, &roomSearchBar]() {
         mw->filterRooms(roomSearchBar ? roomSearchBar->text() : "");
     };

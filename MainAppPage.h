@@ -16,4 +16,4 @@ public:
                                  QVBoxLayout *&accommodationsLayout);
 };
 
-#endif // MAINAPPPAGE_H
+#endif

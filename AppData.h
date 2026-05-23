@@ -42,8 +42,8 @@ struct BookingHistory
     QString status;
     QString userName;
     QString userEmail;
-    QString rawCheckIn; // NOU: Data de check-in în format "yyyy-MM-dd"
-    double totalCost;   // NOU: Prețul total al cazării
+    QString rawCheckIn; // data de check-in în format "yyyy-MM-dd"
+    double totalCost;   // pretul total al cazarii
 };
 
 struct UserInfo
@@ -53,4 +53,4 @@ struct UserInfo
 };
 
 inline int IdUser=0;
-#endif // APPDATA_H
+#endif
