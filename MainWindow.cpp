@@ -1172,7 +1172,9 @@ void MainWindow::handleBackendMessage(const QString &message)
         if (status == "success") {
             // Dacă s-au reținut bani sau s-au returnat diferențe, actualizăm balanța clientului primită de la server
             QMessageBox::information(this, "Succes", "Rezervarea a fost anulată cu succes!");
-
+            if (lblBalanceVal) {
+                lblBalanceVal->setText(QString::number(currentUser.balance, 'f', 2) + " €");
+            }
             // Trimitem automat o cerere la server pentru a reîmprospăta lista istorică vizibilă pe ecran
             QJsonObject req;
             req["type"]  = "GET_CLIENT_BOOKINGS";
