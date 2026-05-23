@@ -286,7 +286,7 @@ void MainWindow::displayRooms(const QString &f)
         if (reqSofa    && !room.hasSofa) continue;
 
         QFrame *fr = new QFrame();
-        fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 10px; border: 1px solid #334155; }");
+        fr->setStyleSheet("QFrame { background-color: transparent; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); }");
 
         QHBoxLayout *l = new QHBoxLayout(fr);
         l->setContentsMargins(15, 15, 15, 15);
@@ -686,7 +686,7 @@ void MainWindow::updateBookingHistoryUi()
         any = true;
 
         QFrame *fr = new QFrame();
-        fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 8px; border: 1px solid #334155; padding: 5px; }");
+        fr->setStyleSheet("QFrame { background-color: transparent; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); padding: 5px; }");
         QHBoxLayout *cl = new QHBoxLayout(fr);
         QVBoxLayout *inf = new QVBoxLayout();
 
@@ -845,7 +845,7 @@ void MainWindow::updateAdminDashboardUi()
                           bool canCancel, int bookingIndex = -1)
     {
         QFrame *fr = new QFrame();
-        fr->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 10px; border: 1px solid #334155; padding: 12px; margin-bottom: 5px; }");
+        fr->setStyleSheet("QFrame { background-color: transparent; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px; margin-bottom: 5px; }");
         QHBoxLayout *cl = new QHBoxLayout(fr);
         QVBoxLayout *inf = new QVBoxLayout();
 

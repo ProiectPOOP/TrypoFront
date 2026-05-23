@@ -31,11 +31,11 @@ QWidget *UserProfilePage::createWidget(MainWindow *mw,
     QLabel *pt = new QLabel("Account Settings");
     pt->setStyleSheet("font-size: 24px; font-weight: bold; color: white;");
     h->addWidget(bb);
-    h->addSpacing(20);
+    h->addSpacing(10);
     h->addWidget(pt);
     h->addStretch();
     ml->addLayout(h);
-    ml->addSpacing(30);
+    ml->addSpacing(15);
 
     QHBoxLayout *splitLayout = new QHBoxLayout();
     splitLayout->setSpacing(50);
@@ -90,9 +90,10 @@ QWidget *UserProfilePage::createWidget(MainWindow *mw,
 
     QScrollArea *hsa = new QScrollArea();
     hsa->setWidgetResizable(true);
-    hsa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
+    hsa->setStyleSheet("QScrollArea, QScrollArea > QWidget { background: transparent; border: none; }");
 
     QWidget *hc = new QWidget();
+    hc->setStyleSheet("background: transparent;");
     historyLayout = new QVBoxLayout(hc);
     historyLayout->setAlignment(Qt::AlignTop);
     // Note: updateBookingHistoryUi() is called from MainWindow::goToUserProfile()

@@ -41,9 +41,10 @@ QWidget *AdminDashboardPage::createWidget(MainWindow *mw, QVBoxLayout *&adminHis
 
     QScrollArea *sa = new QScrollArea();
     sa->setWidgetResizable(true);
-    sa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
+    sa->setStyleSheet("QScrollArea, QScrollArea > QWidget { background: transparent; border: none; }");
 
     QWidget *container = new QWidget();
+    container->setStyleSheet("background: transparent;");
     adminHistoryLayout = new QVBoxLayout(container);
     adminHistoryLayout->setAlignment(Qt::AlignTop);
 

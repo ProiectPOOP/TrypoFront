@@ -95,8 +95,10 @@ QWidget *DetailsPage::createWidget(MainWindow *mw,
 
     QScrollArea *sa = new QScrollArea();
     sa->setWidgetResizable(true);
-    sa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
+    sa->setStyleSheet("QScrollArea, QScrollArea > QWidget { background: transparent; border: none; }");
+
     QWidget *rc = new QWidget();
+    rc->setStyleSheet("background: transparent;");
     roomsLayout = new QVBoxLayout(rc);
     roomsLayout->setAlignment(Qt::AlignTop);
     sa->setWidget(rc);

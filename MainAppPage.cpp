@@ -42,9 +42,12 @@ QWidget *MainAppPage::createWidget(MainWindow *mw,
 
     QScrollArea *sa = new QScrollArea();
     sa->setWidgetResizable(true);
-    sa->setStyleSheet("QScrollArea { border: none; background: transparent; }");
+    // 1. Forțează transparența pe viewport-ul scroll-ului
+    sa->setStyleSheet("QScrollArea, QScrollArea > QWidget { background: transparent; border: none; }");
 
     accommodationsContainer = new QWidget();
+    // 2. Elimină fundalul negru al containerului propriu-zis
+    accommodationsContainer->setStyleSheet("background: transparent;");
     accommodationsLayout = new QVBoxLayout(accommodationsContainer);
     accommodationsLayout->setAlignment(Qt::AlignTop);
     sa->setWidget(accommodationsContainer);
