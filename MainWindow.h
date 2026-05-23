@@ -37,6 +37,7 @@ public slots:
     // Search / filter
     void filterAccommodations(const QString &query);
     void filterRooms(const QString &query);
+    void filterAdminBookings(const QString &query);
 
     // Accommodation details & booking
     void openAccommodationDetails(const Accommodation &acc);
@@ -91,6 +92,8 @@ private:
     // Admin dashboard
     QVBoxLayout *adminHistoryLayout = nullptr;
     QLabel *lblAdminLocation = nullptr;
+    QLineEdit *adminSearchBar = nullptr;
+
     // Session state
     UserInfo currentUser;
     QList<Accommodation> allAccommodations;

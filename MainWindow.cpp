@@ -48,12 +48,12 @@ MainWindow::~MainWindow() {}
 void MainWindow::setupUi()
 {
     stackedWidget = new QStackedWidget(this);
-    stackedWidget->addWidget(LoginPage::createWidget(this, loginEmailInput, loginPasswordInput));                                                                                     // 0
-    stackedWidget->addWidget(RegisterPage::createWidget(this, regNameInput, regEmailInput, regPasswordInput, regPhoneInput, regAddressInput, regDobInput, regCountryInput, regGenderInput)); // 1
+    stackedWidget->addWidget(LoginPage::createWidget(this, loginEmailInput, loginPasswordInput));                                                                                             // 0
+    stackedWidget->addWidget(RegisterPage::createWidget(this, regNameInput, regEmailInput, regPasswordInput, regPhoneInput, regAddressInput, regDobInput, regCountryInput, regGenderInput));  // 1
     stackedWidget->addWidget(MainAppPage::createWidget(this, searchBarInput, accommodationsContainer, accommodationsLayout));                                                                 // 2
     stackedWidget->addWidget(UserProfilePage::createWidget(this, lblNameVal, lblEmailVal, lblPhoneVal, lblDobVal, lblCountryVal, lblGenderVal, lblAddressVal, lblBalanceVal, historyLayout)); // 3
-    stackedWidget->addWidget(DetailsPage::createWidget(this, detName, detAddress, detPromo, roomSearchBar, roomsLayout, cbBalcony, cbFridge, cbAC, cbTV, cbWifi, cbSofa));           // 4
-    stackedWidget->addWidget(AdminDashboardPage::createWidget(this, adminHistoryLayout, lblAdminLocation));                                                                                        // 5
+    stackedWidget->addWidget(DetailsPage::createWidget(this, detName, detAddress, detPromo, roomSearchBar, roomsLayout, cbBalcony, cbFridge, cbAC, cbTV, cbWifi, cbSofa));                    // 4
+    stackedWidget->addWidget(AdminDashboardPage::createWidget(this, adminHistoryLayout, lblAdminLocation, adminSearchBar));                                                                   // 5
     setCentralWidget(stackedWidget);
 }
 
@@ -839,6 +839,8 @@ void MainWindow::updateAdminDashboardUi()
     }
 
     struct GlobalBooking { QString user, hotel, dates, status; };
+    // --- CITIM TEXTUL DIN BARA DE CĂUTARE ---
+    QString filterText = adminSearchBar ? adminSearchBar->text().trimmed() : "";
 
     auto addCard = [this](const QString &user, const QString &hotel,
                           const QString &dates, const QString &status,
@@ -923,6 +925,11 @@ void MainWindow::updateAdminDashboardUi()
     };
 
     for (int i = 0; i < userBookings.size(); ++i) {
+        // --- FILTRARE DUPĂ NUMELE CLIENTULUI ---
+        if (!filterText.isEmpty() && !userBookings[i].userName.contains(filterText, Qt::CaseInsensitive)) {
+            continue; // Dacă nu se potrivește cu ce a scris adminul, sărim peste card
+        }
+
         addCard(userBookings[i].userName,
                 userBookings[i].hotelName,
                 userBookings[i].dateRange,
@@ -1185,4 +1192,11 @@ void MainWindow::handleBackendMessage(const QString &message)
         }
         return;
     }
+}
+
+void MainWindow::filterAdminBookings(const QString &query)
+{
+    Q_UNUSED(query);
+    // Pur și simplu redesenăm interfața; updateAdminDashboardUi() va citi singură textul.
+    updateAdminDashboardUi();
 }
