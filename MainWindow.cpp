@@ -151,6 +151,10 @@ void MainWindow::processRegister()
         QMessageBox::warning(this, "Error", "Weak password – must contain at least one special character.");
         return;
     }
+    if (regCountryInput->findText(regCountryInput->currentText()) == -1) {
+        QMessageBox::warning(this, "Error", "Please select a valid country from the list.");
+        return;
+    }
 
     QJsonObject userObj;
     userObj["type"]     = "REGISTER_USER";
