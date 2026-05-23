@@ -11,31 +11,36 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 1. Căutăm pachetele necesare (Widgets și Network)
 find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
 
-# 2. Adăugăm fișierele sursă (Asigură-te că socketclient.cpp/h sunt aici dacă le-ai creat)
+# 2. Definim absolut toate fișierele sursă și header-ele
 set(PROJECT_SOURCES
+    main.cpp
+    MainWindow.cpp
+    MainWindow.h
+    AdminDashboardPage.cpp
+    AdminDashboardPage.h
+    DetailsPage.cpp
+    DetailsPage.h
+    LoginPage.cpp
+    LoginPage.h
+    MainAppPage.cpp
+    MainAppPage.h
+    RegisterPage.cpp
+    RegisterPage.h
+    UserProfilePage.cpp
+    UserProfilePage.h
+    socketclient.cpp
+    socketclient.h
+    AppData.h
+    Styles.h
 
-
-
-
-
-        socketclient.h
+    # Fișierul care se ocupă de poze:
+    resources.qrc
 )
 
 # 3. Definim executabilul
-qt_add_executable(Trypo_frontend MANUAL_FINALIZATION ${PROJECT_SOURCES}
-    AdminDashboardPage.cpp AdminDashboardPage.h AppData.h CMakeLists.txt DetailsPage.cpp DetailsPage.h json.hpp LoginPage.cpp LoginPage.h main.cpp Main.qml MainAppPage.cpp MainAppPage.h MainWindow.cpp MainWindow.h RegisterPage.cpp RegisterPage.h socketclient.cpp socketclient.h Styles.h UserProfilePage.cpp UserProfilePage.h
-    img/destination.png
-    resources.qrc
-
-
-
-
-
-
-)
+qt_add_executable(Trypo_frontend MANUAL_FINALIZATION ${PROJECT_SOURCES})
 
 # 4. Legăm toate librăriile de proiectul nostru
-# AICI era eroarea: "mytarget" trebuie să fie numele proiectului tău
 target_link_libraries(Trypo_frontend PRIVATE
     Qt6::Widgets
     Qt6::Network

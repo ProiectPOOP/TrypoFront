@@ -14,7 +14,19 @@ QWidget *LoginPage::createWidget(MainWindow *mw,
     l->setAlignment(Qt::AlignCenter);
 
     QLabel *t = new QLabel("Welcome back to Trypo", w);
-    t->setStyleSheet("font-size: 28px; font-weight: bold; color: #f8fafc; margin-bottom: 25px;");
+
+    // 1. Alinierea textului pe centru în interiorul widget-ului
+    t->setAlignment(Qt::AlignCenter);
+
+    // 2. Aplicarea unui stil modern (font mai gros, culori neon din paleta ta și spațiere între litere)
+    t->setStyleSheet(
+        "font-family: 'Segoe UI', Arial, sans-serif;"
+        "font-size: 32px;"
+        "font-weight: 900;"          // Extrem de bold, stil cyberpunk/modern
+        "color: #38bdf8;"            // Accentul Cyan Neon folosit în Styles.h
+        "letter-spacing: 1px;"       // Spațiere elegantă între litere
+        "margin-bottom: 30px;"       // Spațiu generos sub titlu
+        );
 
     loginEmailInput = new QLineEdit(w);
     loginEmailInput->setPlaceholderText("Email");

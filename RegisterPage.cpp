@@ -22,7 +22,19 @@ QWidget *RegisterPage::createWidget(MainWindow *mw,
     ml->setContentsMargins(50, 20, 50, 20);
 
     QLabel *t = new QLabel("Register to Trypo", w);
-    t->setStyleSheet("font-size: 26px; font-weight: bold; color: #f8fafc; margin-bottom: 20px;");
+
+    // Aliniem textul pe centru
+    t->setAlignment(Qt::AlignCenter);
+
+    // Aplicăm același stil neon uniform
+    t->setStyleSheet(
+        "font-family: 'Segoe UI', Arial, sans-serif;"
+        "font-size: 32px;"
+        "font-weight: 900;"
+        "color: #38bdf8;"
+        "letter-spacing: 1px;"
+        "margin-bottom: 30px;"
+        );
 
     QFormLayout *fl = new QFormLayout();
     fl->setSpacing(12);

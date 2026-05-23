@@ -766,7 +766,7 @@ void MainWindow::clientCancelBooking(int bookingIndex)
     QDialog *confDialog = new QDialog(this);
     confDialog->setAttribute(Qt::WA_DeleteOnClose);
     confDialog->setWindowTitle("Confirmare Anulare");
-    confDialog->setFixedSize(400, 260);
+    confDialog->setFixedSize(480, 260);
     confDialog->setStyleSheet("QDialog { background-color: #0f172a; border: 1px solid #334155; border-radius: 12px; }");
 
     QVBoxLayout *vl = new QVBoxLayout(confDialog);
