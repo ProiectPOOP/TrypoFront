@@ -6,6 +6,8 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QCompleter>
+#include <QAbstractItemView>
 
 QWidget *RegisterPage::createWidget(MainWindow *mw,
                                     QLineEdit *&regNameInput,
@@ -62,8 +64,59 @@ QWidget *RegisterPage::createWidget(MainWindow *mw,
         "QCalendarWidget QAbstractItemView:disabled { color: #475569; }");
 
     regCountryInput = new QComboBox();
-    regCountryInput->addItems({"Romania", "Moldova", "UK", "Germany"});
+
+    // 1. Lista extinsă cu țările importante din lume
+    QStringList countries = {
+        "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia",
+        "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium",
+        "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei",
+        "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada", "Cape Verde",
+        "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Costa Rica",
+        "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominican Republic",
+        "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini",
+        "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana",
+        "Greece", "Guatemala", "Guinea", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia",
+        "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan",
+        "Kenya", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya",
+        "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives",
+        "Mali", "Malta", "Mauritania", "Mauritius", "Mexico", "Moldova", "Monaco", "Mongolia",
+        "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nepal", "Netherlands",
+        "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway",
+        "Oman", "Pakistan", "Palestine", "Panama", "Paraguay", "Peru", "Philippines", "Poland",
+        "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "San Marino", "Saudi Arabia", "Senegal",
+        "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Somalia",
+        "South Africa", "South Korea", "Spain", "Sri Lanka", "Sudan", "Sweden", "Switzerland", "Syria",
+        "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Togo", "Tunisia", "Turkey", "Turkmenistan",
+        "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay",
+        "Uzbekistan", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+    };
+
+    regCountryInput->addItems(countries);
     regCountryInput->setStyleSheet(dropDownStyle);
+
+    // 2. Funcționalitatea de căutare (Filtrare)
+    regCountryInput->setEditable(true); // Permitem utilizatorului să scrie text pentru a căuta
+    regCountryInput->setInsertPolicy(QComboBox::NoInsert); // Interzicem adăugarea de țări inventate de user
+
+    // 3. Setarea unui Completer pentru sugestii inteligente
+    QCompleter *completer = new QCompleter(countries, w);
+    completer->setCaseSensitivity(Qt::CaseInsensitive); // Caută indiferent de litere mari/mici
+    completer->setFilterMode(Qt::MatchContains);        // Permite găsirea textului oriunde în cuvânt (ex: "nia" găsește "Romania")
+
+    // 4. Stilizăm pop-up-ul sugestiilor pentru a se integra în design-ul "Dark Neon"
+    completer->popup()->setStyleSheet(
+        "QAbstractItemView { "
+        "   background-color: #1e293b; "
+        "   color: #f1f5f9; "
+        "   selection-background-color: #0ea5e9; "
+        "   selection-color: white; "
+        "   border: 1px solid #38bdf8; "
+        "   border-radius: 8px; "
+        "   padding: 5px; "
+        "}"
+        );
+
+    regCountryInput->setCompleter(completer);
 
     regGenderInput = new QComboBox();
     regGenderInput->addItems({"Male", "Female", "Unspecified"});

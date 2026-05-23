@@ -85,7 +85,8 @@ const QString dangerBtnStyle =
 // --- CÂMPURI DE TEXT (Stil "Glassmorphism") ---
 const QString lineEditStyle =
     "QLineEdit { "
-    "   padding: 14px 18px; "
+    "   padding: 8px 18px; "
+    "   min-height: 22px; "
     "   border: 1px solid rgba(255, 255, 255, 0.1); "
     "   border-radius: 10px; "
     "   background-color: rgba(30, 41, 59, 0.5); " // Semi-transparent
@@ -95,7 +96,7 @@ const QString lineEditStyle =
     "QLineEdit:focus { "
     "   border: 2px solid #38bdf8; "
     "   background-color: rgba(15, 23, 42, 0.8); "
-    "   padding: 13px 17px; " // Compensare bordură
+    "   padding: 7px 15px; " // Compensare bordură
     "} "
     "QLineEdit:hover { "
     "   border: 1px solid rgba(56, 189, 248, 0.5); "
@@ -104,7 +105,7 @@ const QString lineEditStyle =
 // --- DROPDOWN-URI ȘI DATE PICKER (Stil modern cu indicatori custom) ---
 const QString dropDownStyle =
     "QComboBox, QDateEdit { "
-    "   padding: 12px 18px; "
+    "   padding: 8px 18px; "
     "   border: 1px solid rgba(255, 255, 255, 0.1); "
     "   border-radius: 10px; "
     "   background-color: rgba(30, 41, 59, 0.5); "
@@ -143,6 +144,12 @@ const QString dropDownStyle =
     "   outline: none; "
     "   border-radius: 8px; "
     "   padding: 5px; "
+    "}"
+    "QComboBox QLineEdit { "
+    "   background: transparent; "
+    "   border: none; "
+    "   padding: 0px; "
+    "   color: #f1f5f9; "
     "}";
 
 // --- CHECKBOX-URI (Stil "Neon Toggle") ---
