@@ -234,11 +234,15 @@ void MainWindow::openAccommodationDetails(const Accommodation &acc)
     } else {
         detPromo->hide();
     }
+    QJsonObject reqImages;
+    reqImages["type"] = "GET_RENTAL_IMAGES";
+    reqImages["hotel_id"] = acc.id;
+    m_socketClient->sendMessage(QJsonDocument(reqImages).toJson(QJsonDocument::Compact));
+
     QJsonObject req;
     req["type"] = "GET_LOCATION_BOOKINGS";
     req["location_id"] = acc.id;
     m_socketClient->sendMessage(QJsonDocument(req).toJson(QJsonDocument::Compact));
-    displayRooms("");
     stackedWidget->setCurrentIndex(4);
 }
 
@@ -1232,10 +1236,48 @@ void MainWindow::handleBackendMessage(const QString &message)
         } else {
             QMessageBox::critical(this, "Eroare la Anulare", serverMsg);
         }
+        return;}
+
+    if (type == "GET_RENTAL_IMAGES_RESPONSE") {
+        int hotelId = obj["hotel_id"].toInt();
+        QJsonArray roomsImages = obj["rooms_images"].toArray();
+
+        // Actualizăm pozele direct în instanța curentă deschisă pe ecranul de detalii
+        if (currentAccommodationInDetails.id == hotelId) {
+            for (auto &room : currentAccommodationInDetails.rooms) {
+                for (const QJsonValue &imgVal : roomsImages) {
+                    QJsonObject imgObj = imgVal.toObject();
+                    if (imgObj["room_id"].toInt() == room.id) {
+                        room.imageSource = imgObj["image"].toString(); // Salvăm stringul Base64 sosit în cameră
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Actualizăm și cache-ul global (allAccommodations) pentru consistența viitoare a datelor
+        for (auto &acc : allAccommodations) {
+            if (acc.id == hotelId) {
+                for (auto &room : acc.rooms) {
+                    for (const QJsonValue &imgVal : roomsImages) {
+                        QJsonObject imgObj = imgVal.toObject();
+                        if (imgObj["room_id"].toInt() == room.id) {
+                            room.imageSource = imgObj["image"].toString();
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+
+        // Redesenăm interfața cu camere pe firul principal de execuție, acum având pozele salvate local
+        QMetaObject::invokeMethod(this, [this]() {
+            displayRooms(roomSearchBar ? roomSearchBar->text() : "");
+        }, Qt::QueuedConnection);
         return;
     }
 }
-
 void MainWindow::filterAdminBookings(const QString &query)
 {
     Q_UNUSED(query);
