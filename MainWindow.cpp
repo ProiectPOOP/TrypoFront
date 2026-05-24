@@ -1090,7 +1090,7 @@ void MainWindow::handleBackendMessage(const QString &message)
                     r.type      = rObj["type"].toString();
                     r.basePrice = rObj["price"].toDouble();
                     r.beds      = rObj["beds"].toInt();
-                    r.hasSofa   = rObj["hasSofa"].toBool(false);
+                    r.hasSofa   = rObj["hasSofa"].toBool();
                     r.imageSource = rObj["image"].toString();
 
                     if (rObj["facilities"].isArray()) {
