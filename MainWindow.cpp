@@ -34,6 +34,7 @@ MainWindow::MainWindow(QWidget *parent)
     cbBalcony = cbFridge = cbAC = cbTV = cbWifi = cbSofa = nullptr;
     m_socketClient = new SocketClient(this);
     m_socketClient->connectToBackend(ip, 12345);
+    // ori de cate ori SocketClient primeste date complete de pe retea, executa metoda handleBackendMessage din MainWindow pentru a procesa acele date
     connect(m_socketClient, &SocketClient::dataReceived, this, &MainWindow::handleBackendMessage);
     setupUi();
 }
@@ -296,10 +297,9 @@ void MainWindow::displayRooms(const QString &f)
             roomPixmap.load(room.imageSource);
         }
         if (roomPixmap.isNull()) {
-            roomPixmap.load(":/img/destination.png"); // placeholder dacă nu există poză
+            roomPixmap.load(":/img/destination.png");
         }
 
-        // Dimensiuni pentru poza camerei din listă
         int rWidth = 160;
         int rHeight = 90;
         QPixmap scaledRoomPixmap = roomPixmap.scaled(rWidth, rHeight, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
@@ -309,7 +309,6 @@ void MainWindow::displayRooms(const QString &f)
         roomImgLabel->setFixedSize(rWidth, rHeight);
         roomImgLabel->setStyleSheet("border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background: #0f172a;");
 
-        // Adăugăm imaginea în stânga cardului camerei
         l->addWidget(roomImgLabel);
         l->addSpacing(15);
 
@@ -357,68 +356,61 @@ void MainWindow::displayRooms(const QString &f)
 
 void MainWindow::populateAccommodations(const QString &f)
 {
-    // Ștergem elementele vechi din layout pentru a evita suprapunerile la filtrare
+    // stergem elementele vechi din layout pentru a evita suprapunerile la filtrare
     QLayoutItem *c;
     while ((c = accommodationsLayout->takeAt(0)) != nullptr) {
         if (c->widget()) delete c->widget();
         delete c;
     }
 
-    // Parcurgem toate unitățile de cazare primite de pe backend
+    // parcurgem toate unitatile de cazare primite de pe backend
     for (const auto &acc : allAccommodations) {
         if (!f.isEmpty()
             && !acc.name.contains(f, Qt::CaseInsensitive)
             && !acc.location.contains(f, Qt::CaseInsensitive))
             continue;
 
-        // Creăm cardul pentru unitatea de cazare
+        // cream cardul pentru unitatea de cazare
         QFrame *card = new QFrame();
         card->setStyleSheet("QFrame { background-color: #1e293b; border-radius: 12px; }");
 
         QHBoxLayout *l = new QHBoxLayout(card);
         l->setContentsMargins(20, 20, 20, 20);
 
-        // --- SECTIUNE IMAGINE (Claritate îmbunătățită și scalare inteligentă) ---
         QLabel *imgLabel = new QLabel();
         QPixmap pixmap;
 
-        // Încercăm mai întâi interpretarea textului ca string Base64 primit din JSON
+        // interpretarea textului ca string Base64 primit din JSON
         QByteArray imageData = QByteArray::fromBase64(acc.imageSource.toUtf8());
         if (!pixmap.loadFromData(imageData)) {
-            // Dacă nu e Base64, încercăm încărcarea ca o cale locală directă de pe disc
+            // daca nu e Base64, incercam incarcarea ca o cale locala directa de pe disc
             pixmap.load(acc.imageSource);
         }
 
-        // Dacă imaginea este nulă (eroare de încărcare/lipsă date), aplicăm un placeholder implicit
+        // Daca imaginea este nula (eroare de încarcare/lipsa date), aplicam un placeholder implicit
         if (pixmap.isNull()) {
             pixmap.load(":/img/destination.png");
         }
 
-        // Setează dimensiunile ideale tip landscape (format ~16:9)
         int imgWidth = 240;
         int imgHeight = 135;
 
-        // Pasul 1: Scalare fină (SmoothTransformation elimină pixelarea și marginile zimțate)
-        // Utilizăm KeepAspectRatioByExpanding pentru ca imaginea să umple tot spațiul alocat
+        // utilizam KeepAspectRatioByExpanding pentru ca imaginea sa umple tot spatiul alocat
         QPixmap scaledPixmap = pixmap.scaled(imgWidth, imgHeight,
                                              Qt::KeepAspectRatioByExpanding,
                                              Qt::SmoothTransformation);
 
-        // Pasul 2: Decupăm exact surplusul pentru a păstra dimensiunile perfecte, fără distorsionare
+        // decupam surplusul pentru a pastra dimensiunile
         QPixmap croppedPixmap = scaledPixmap.copy(0, 0, imgWidth, imgHeight);
 
         imgLabel->setPixmap(croppedPixmap);
         imgLabel->setFixedSize(imgWidth, imgHeight);
 
-        // Stil pentru imagine: colțuri rotunjite subtile și o bordură fină adaptată la tema dark
         imgLabel->setStyleSheet("border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background: #0f172a;");
 
-        // Adăugăm imaginea în partea stângă a cardului
         l->addWidget(imgLabel);
-        l->addSpacing(15); // Spațiu între imagine și descrieri
-        // ------------------------------------------------------------------------
+        l->addSpacing(15);
 
-        // Coloana cu texte informative (Nume și Locație)
         QVBoxLayout *inf = new QVBoxLayout();
         QLabel *nL = new QLabel(acc.name);
         nL->setStyleSheet("color: white; font-size: 18px; font-weight: bold; border: none; background: transparent;");
@@ -427,7 +419,6 @@ void MainWindow::populateAccommodations(const QString &f)
         inf->addWidget(nL);
         inf->addWidget(lL);
 
-        // Butonul de vizualizare detalii
         QPushButton *btn = new QPushButton("View Details");
         btn->setStyleSheet(primaryBtnStyle);
         btn->setCursor(Qt::PointingHandCursor);
@@ -442,12 +433,10 @@ void MainWindow::populateAccommodations(const QString &f)
             }
         });
 
-        // Asamblăm structura cardului
         l->addLayout(inf);
         l->addStretch();
         l->addWidget(btn);
 
-        // Adăugăm cardul în containerul principal din interfață
         accommodationsLayout->addWidget(card);
     }
 }
@@ -1242,20 +1231,19 @@ void MainWindow::handleBackendMessage(const QString &message)
         int hotelId = obj["hotel_id"].toInt();
         QJsonArray roomsImages = obj["rooms_images"].toArray();
 
-        // Actualizăm pozele direct în instanța curentă deschisă pe ecranul de detalii
+        // actualizam pozele direct în instanta curenta deschisa pe ecranul de detalii
         if (currentAccommodationInDetails.id == hotelId) {
             for (auto &room : currentAccommodationInDetails.rooms) {
                 for (const QJsonValue &imgVal : roomsImages) {
                     QJsonObject imgObj = imgVal.toObject();
                     if (imgObj["room_id"].toInt() == room.id) {
-                        room.imageSource = imgObj["image"].toString(); // Salvăm stringul Base64 sosit în cameră
+                        room.imageSource = imgObj["image"].toString();
                         break;
                     }
                 }
             }
         }
 
-        // Actualizăm și cache-ul global (allAccommodations) pentru consistența viitoare a datelor
         for (auto &acc : allAccommodations) {
             if (acc.id == hotelId) {
                 for (auto &room : acc.rooms) {
@@ -1271,7 +1259,6 @@ void MainWindow::handleBackendMessage(const QString &message)
             }
         }
 
-        // Redesenăm interfața cu camere pe firul principal de execuție, acum având pozele salvate local
         QMetaObject::invokeMethod(this, [this]() {
             displayRooms(roomSearchBar ? roomSearchBar->text() : "");
         }, Qt::QueuedConnection);

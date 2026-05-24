@@ -38,7 +38,7 @@ QWidget *DetailsPage::createWidget(MainWindow *mw,
     h->addStretch();
 
     detImage = new QLabel();
-    detImage->setFixedSize(160, 90); // Format landscape subtil pentru colț
+    detImage->setFixedSize(160, 90); // format landscape pentru colt
     detImage->setStyleSheet("border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background: #0f172a;");
     h->addWidget(detImage);
 

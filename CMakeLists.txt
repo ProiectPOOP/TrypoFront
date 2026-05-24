@@ -8,10 +8,10 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 1. Căutăm pachetele necesare (Widgets și Network)
+# 1. Cautam pachetele necesare (Widgets si Network)
 find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
 
-# 2. Definim absolut toate fișierele sursă și header-ele
+# 2. Definim absolut toate fișierele sursa si headere
 set(PROJECT_SOURCES
     main.cpp
     MainWindow.cpp
@@ -33,18 +33,18 @@ set(PROJECT_SOURCES
     AppData.h
     Styles.h
 
-    # Fișierul care se ocupă de poze:
+    # Fisierul care se ocupa de poze:
     resources.qrc
 )
 
 # 3. Definim executabilul
 qt_add_executable(Trypo_frontend MANUAL_FINALIZATION ${PROJECT_SOURCES})
 
-# 4. Legăm toate librăriile de proiectul nostru
+# 4. Legam toate librariile de proiectul nostru
 target_link_libraries(Trypo_frontend PRIVATE
     Qt6::Widgets
     Qt6::Network
 )
 
-# 5. Finalizarea (specifică pentru Qt6)
+# 5. Finalizarea (specifica pentru Qt6)
 qt_finalize_executable(Trypo_frontend)
