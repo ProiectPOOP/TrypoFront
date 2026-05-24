@@ -31,6 +31,7 @@ struct Accommodation
     QString promoName;
     int capacity;
     QList<Room> rooms;
+    QString imageSource;
 };
 
 struct BookingHistory
