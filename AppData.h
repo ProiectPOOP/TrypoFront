@@ -19,6 +19,7 @@ struct Room
     double basePrice;
     bool hasSofa;           // increases capacity by 1
     QList<QDate> bookedDates;
+    QString imageSource;
 };
 
 struct Accommodation

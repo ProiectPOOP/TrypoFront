@@ -83,7 +83,7 @@ private:
     QVBoxLayout *historyLayout;
 
     // details / rooms page
-    QLabel    *detName, *detAddress, *detPromo;
+    QLabel    *detName, *detAddress, *detPromo, *detImage;
     QLineEdit *roomSearchBar;
     QVBoxLayout *roomsLayout;
     QCheckBox *cbBalcony, *cbFridge, *cbAC, *cbTV, *cbWifi, *cbSofa;

@@ -23,7 +23,8 @@ public:
                                  QCheckBox *&cbAC,
                                  QCheckBox *&cbTV,
                                  QCheckBox *&cbWifi,
-                                 QCheckBox *&cbSofa);
+                                 QCheckBox *&cbSofa,
+                                 QLabel *&detImage);
 };
 
 #endif

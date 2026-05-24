@@ -48,7 +48,7 @@ void MainWindow::setupUi()
     stackedWidget->addWidget(RegisterPage::createWidget(this, regNameInput, regEmailInput, regPasswordInput, regPhoneInput, regAddressInput, regDobInput, regCountryInput, regGenderInput));  // 1
     stackedWidget->addWidget(MainAppPage::createWidget(this, searchBarInput, accommodationsContainer, accommodationsLayout));                                                                 // 2
     stackedWidget->addWidget(UserProfilePage::createWidget(this, lblNameVal, lblEmailVal, lblPhoneVal, lblDobVal, lblCountryVal, lblGenderVal, lblAddressVal, lblBalanceVal, historyLayout)); // 3
-    stackedWidget->addWidget(DetailsPage::createWidget(this, detName, detAddress, detPromo, roomSearchBar, roomsLayout, cbBalcony, cbFridge, cbAC, cbTV, cbWifi, cbSofa));                    // 4
+    stackedWidget->addWidget(DetailsPage::createWidget(this, detName, detAddress, detPromo, roomSearchBar, roomsLayout, cbBalcony, cbFridge, cbAC, cbTV, cbWifi, cbSofa, detImage)); // 4
     stackedWidget->addWidget(AdminDashboardPage::createWidget(this, adminHistoryLayout, lblAdminLocation, adminSearchBar));                                                                   // 5
     setCentralWidget(stackedWidget);
 }
@@ -206,6 +206,18 @@ void MainWindow::openAccommodationDetails(const Accommodation &acc)
     detName->setText(acc.name);
     detAddress->setText("📍 " + acc.address + ", " + acc.location);
 
+    QPixmap pixmap;
+    QByteArray imageData = QByteArray::fromBase64(acc.imageSource.toUtf8());
+    if (!pixmap.loadFromData(imageData)) {
+        pixmap.load(acc.imageSource);
+    }
+    if (pixmap.isNull()) {
+        pixmap.load(":/img/destination.png");
+    }
+    QPixmap scaledPixmap = pixmap.scaled(160, 90, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+    QPixmap croppedPixmap = scaledPixmap.copy(0, 0, 160, 90);
+    detImage->setPixmap(croppedPixmap);
+
     if (roomSearchBar)  roomSearchBar->clear();
     if (cbBalcony) cbBalcony->setChecked(false);
     if (cbFridge)  cbFridge->setChecked(false);
@@ -272,6 +284,30 @@ void MainWindow::displayRooms(const QString &f)
 
         QHBoxLayout *l = new QHBoxLayout(fr);
         l->setContentsMargins(15, 15, 15, 15);
+
+        QLabel *roomImgLabel = new QLabel();
+        QPixmap roomPixmap;
+        QByteArray roomImageData = QByteArray::fromBase64(room.imageSource.toUtf8());
+        if (!roomPixmap.loadFromData(roomImageData)) {
+            roomPixmap.load(room.imageSource);
+        }
+        if (roomPixmap.isNull()) {
+            roomPixmap.load(":/img/destination.png"); // placeholder dacă nu există poză
+        }
+
+        // Dimensiuni pentru poza camerei din listă
+        int rWidth = 160;
+        int rHeight = 90;
+        QPixmap scaledRoomPixmap = roomPixmap.scaled(rWidth, rHeight, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        QPixmap croppedRoomPixmap = scaledRoomPixmap.copy(0, 0, rWidth, rHeight);
+
+        roomImgLabel->setPixmap(croppedRoomPixmap);
+        roomImgLabel->setFixedSize(rWidth, rHeight);
+        roomImgLabel->setStyleSheet("border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background: #0f172a;");
+
+        // Adăugăm imaginea în stânga cardului camerei
+        l->addWidget(roomImgLabel);
+        l->addSpacing(15);
 
         QVBoxLayout *inf = new QVBoxLayout();
 
@@ -1051,6 +1087,7 @@ void MainWindow::handleBackendMessage(const QString &message)
                     r.basePrice = rObj["price"].toDouble();
                     r.beds      = rObj["beds"].toInt();
                     r.hasSofa   = rObj["hasSofa"].toBool(false);
+                    r.imageSource = rObj["image"].toString();
 
                     if (rObj["facilities"].isArray()) {
                         for (const QJsonValue &fValue : rObj["facilities"].toArray()) {
